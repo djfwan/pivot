@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./home-header-bar.css');
 
 import * as React from 'react';
@@ -55,11 +71,6 @@ export class HomeHeaderBar extends React.Component<HomeHeaderBarProps, HomeHeade
 
   render() {
     var { user, onNavClick, customization, title } = this.props;
-
-    // One day
-    //<div className="icon-button" onClick={this.handleSettings.bind(this)}>
-    //  <SvgIcon className="not-implemented" svg={require('../../icons/full-settings.svg')}/>
-    //</div>
 
     var userButton: JSX.Element = null;
     if (user) {

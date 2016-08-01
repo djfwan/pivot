@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { TimeBucketAction, NumberBucketAction, ActionJS, Action, ActionValue, TimeRange, Duration, PlywoodRange, NumberRange } from 'plywood';
 import { day, hour, minute, Timezone } from 'chronoshift';
 
@@ -44,15 +60,6 @@ function makeNumberBuckets(centerAround: number, count: number, coarse?: boolean
   return granularities;
 }
 
-
-function makeNumberBucketsSimple() {
-  var granularities: Granularity[] = [];
-  for (var i = 3; i > -2; i--) {
-    granularities.push(granularityFromJS(Math.pow(10, i)));
-  }
-  return granularities;
-}
-
 function days(count: number) {
   return count * day.canonicalLength;
 }
@@ -65,24 +72,13 @@ function minutes(count: number) {
   return count * minute.canonicalLength;
 }
 
-export interface Helper {
-  dimensionKind: ContinuousDimensionKind;
-  minGranularity: Granularity;
-  defaultGranularity: Granularity;
-  defaultGranularities: Granularity[];
-  supportedGranularities: Granularity[];
-  checkers: Checker[];
-  coarseCheckers?: Checker[];
-  coarseGranularities?: Granularity[];
-}
-
 export class TimeHelper {
   static dimensionKind: ContinuousDimensionKind = 'time';
 
   static minGranularity = granularityFromJS('PT1M');
   static defaultGranularity = granularityFromJS('P1D');
 
-  static supportedGranularities = function(bucketedBy: Granularity) {
+  static supportedGranularities = function() {
     return [
         'PT1S', 'PT1M', 'PT5M', 'PT15M',
         'PT1H', 'PT6H', 'PT8H', 'PT12H',

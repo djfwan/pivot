@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import * as path from 'path';
 import * as Q from 'q';
 import * as fs from 'fs-promise';
@@ -28,7 +44,7 @@ export interface FileManagerOptions {
   verbose?: boolean;
   anchorPath: string;
   uri: string;
-  subsetFilter?: Expression;
+  subsetExpression?: Expression;
   onDatasetChange?: (dataset: Dataset) => void;
 }
 
@@ -40,7 +56,7 @@ export class FileManager {
   public anchorPath: string;
   public uri: string;
   public dataset: Dataset;
-  public subsetFilter: Expression;
+  public subsetExpression: Expression;
   public onDatasetChange: (dataset: Dataset) => void;
 
   constructor(options: FileManagerOptions) {
@@ -48,7 +64,7 @@ export class FileManager {
     this.verbose = Boolean(options.verbose);
     this.anchorPath = options.anchorPath;
     this.uri = options.uri;
-    this.subsetFilter = options.subsetFilter;
+    this.subsetExpression = options.subsetExpression;
     this.verbose = Boolean(options.verbose);
     this.onDatasetChange = options.onDatasetChange || noop;
   }
@@ -66,8 +82,8 @@ export class FileManager {
           logger.log(`Loaded file ${filePath} (rows = ${rawData.length})`);
           var dataset = Dataset.fromJS(rawData).hide();
 
-          if (this.subsetFilter) {
-            dataset = dataset.filter(this.subsetFilter.getFn(), {});
+          if (this.subsetExpression) {
+            dataset = dataset.filter(this.subsetExpression.getFn(), {});
           }
 
           this.dataset = dataset;

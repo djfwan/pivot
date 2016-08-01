@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { expect } from 'chai';
 import { testImmutableClass } from 'immutable-class/build/tester';
 
@@ -9,34 +25,24 @@ describe('Dimension', () => {
       {
         name: 'country',
         title: 'important countries',
-        'expression': {
-          'op': 'literal',
-          'value': { 'setType': 'STRING', 'elements': ['en'] },
-          'type': 'SET'
-        },
+        formula: '$country',
         kind: 'string',
-        granularities: [5, 50, 500, 800, 1000]
+        granularities: [5, 50, 500, 800, 1000],
+        sortStrategy: 'self'
       },
       {
         name: 'country',
         title: 'important countries',
-        'expression': {
-          'op': 'literal',
-          'value': { 'setType': 'STRING', 'elements': ['en'] },
-          'type': 'SET'
-        },
+        formula: '$country',
         kind: 'string',
         url: 'https://www.country.com/%s',
-        bucketedBy: 1
+        bucketedBy: 1,
+        bucketingStrategy: 'alwaysBucket'
       },
       {
         name: 'time',
         title: 'time',
-        'expression': {
-          'op': 'literal',
-          'value': { 'start': new Date('2013-02-26T19:00:00.000Z'), 'end': new Date('2013-02-26T22:00:00.000Z') },
-          'type': 'TIME_RANGE'
-        },
+        formula: '$time',
         kind: 'time',
         url: 'http://www.time.com/%s',
         granularities: ['PT1M', { action: 'timeBucket', duration: 'P6M', timezone: 'Etc/UTC' }, 'PT6H', 'P1D', 'P1W']
@@ -44,11 +50,7 @@ describe('Dimension', () => {
       {
         name: 'time',
         title: 'time',
-        'expression': {
-          'op': 'literal',
-          'value': { 'start': new Date('2013-02-26T19:00:00.000Z'), 'end': new Date('2013-02-26T22:00:00.000Z') },
-          'type': 'TIME_RANGE'
-        },
+        formula: '$time',
         kind: 'time',
         url: 'http://www.time.com/%s',
         granularities: ['PT1M', 'P6M', 'PT6H', 'P1D', 'P1W'],

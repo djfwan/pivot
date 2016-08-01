@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./dimension-tile.css');
 
 import * as React from 'react';
@@ -79,7 +95,7 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
 
   fetchData(essence: Essence, dimension: Dimension, sortOn: SortOn, unfolded: boolean, selectedGranularity?: Granularity): void {
     var { searchText } = this.state;
-    var { dataSource, colors } = essence;
+    var { dataCube, colors } = essence;
 
     var filter = essence.getEffectiveFilter();
     // don't remove filter if time
@@ -104,7 +120,7 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
 
     var sortExpression: Expression = null;
 
-    if (dimension.isContinuous()) {
+    if (dimension.canBucket()) {
       const dimensionExpression = dimension.expression as RefExpression;
       const attributeName = dimensionExpression.name;
 
@@ -138,7 +154,7 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
       loading: true,
       fetchQueued: false
     });
-    dataSource.executor(query, { timezone: essence.timezone })
+    dataCube.executor(query, { timezone: essence.timezone })
       .then(
         (dataset: Dataset) => {
           if (!this.mounted) return;
@@ -208,7 +224,7 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
     var persistedGranularity = differentTimeFilterSelection ? null : selectedGranularity;
 
     if (
-      essence.differentDataSource(nextEssence) ||
+      essence.differentDataCube(nextEssence) ||
       essence.differentEffectiveFilter(nextEssence, null, unfolded ? dimension : null) ||
       essence.differentColors(nextEssence) || !dimension.equals(nextDimension) || !sortOn.equals(nextSortOn) ||
       essence.differentTimezoneMatters(nextEssence) ||
@@ -534,9 +550,9 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
 
     var actions: TileAction[] = null;
 
-    if (continuous) {
+    if (dimension.canBucket()) {
       actions = this.getGranularityActions();
-    } else if (!essence.colors) {
+    } else if (!continuous && !essence.colors) {
       actions = this.getFilterActions();
     }
 

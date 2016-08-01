@@ -1,8 +1,24 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { expect } from 'chai';
 import { testImmutableClass } from 'immutable-class/build/tester';
 
 import { $, Expression } from 'plywood';
-import { DataSourceMock } from '../data-source/data-source.mock';
+import { DataCubeMock } from '../data-cube/data-cube.mock';
 import { AppSettings } from './app-settings';
 import { AppSettingsMock } from './app-settings.mock';
 
@@ -22,14 +38,25 @@ describe('AppSettings', () => {
     it("errors if there is no matching cluster", () => {
       var js = AppSettingsMock.wikiOnlyJS();
       js.clusters = [];
-      expect(() => AppSettings.fromJS(js, context)).to.throw("Can not find cluster 'druid' for data source 'wiki'");
+      expect(() => AppSettings.fromJS(js, context)).to.throw("Can not find cluster 'druid' for data cube 'wiki'");
     });
 
   });
 
 
-  describe("upgrades", () => {
+  describe("back compat", () => {
+    it("works with dataSources", () => {
+      var oldJS: any = AppSettingsMock.wikiOnlyJS();
+      oldJS.dataSources = oldJS.dataCubes;
+      delete oldJS.dataCubes;
+      expect(AppSettings.fromJS(oldJS, context).toJS()).to.deep.equal(AppSettingsMock.wikiOnlyJS());
+    });
+
     it("deals with old config style", () => {
+      var wikiDataCubeJS = DataCubeMock.WIKI_JS;
+      delete wikiDataCubeJS.clusterName;
+      (wikiDataCubeJS as any).engine = 'druid';
+
       var oldJS: any = {
         customization: {},
         druidHost: '192.168.99.100',
@@ -39,7 +66,7 @@ describe('AppSettings', () => {
         sourceReintrospectInterval: 10002,
         sourceReintrospectOnLoad: true,
         dataSources: [
-          DataSourceMock.WIKI_JS
+          wikiDataCubeJS
         ]
       };
 
@@ -62,7 +89,7 @@ describe('AppSettings', () => {
         druidHost: '192.168.99.100',
         sourceListScan: 'disable',
         dataSources: [
-          DataSourceMock.WIKI_JS
+          DataCubeMock.WIKI_JS
         ]
       };
 
@@ -84,7 +111,7 @@ describe('AppSettings', () => {
       expect(AppSettings.BLANK.toJS()).to.deep.equal({
         "clusters": [],
         "customization": {},
-        "dataSources": []
+        "dataCubes": []
       });
     });
 
@@ -103,7 +130,7 @@ describe('AppSettings', () => {
           "headerBackground": "brown",
           "title": "Hello World"
         },
-        "dataSources": [
+        "dataCubes": [
           {
             "attributes": [
               {
@@ -123,6 +150,7 @@ describe('AppSettings', () => {
                 "unsplitable": true
               }
             ],
+            "clusterName": "druid",
             "defaultDuration": "P3D",
             "defaultFilter": {
               "op": "literal",
@@ -136,62 +164,29 @@ describe('AppSettings', () => {
             ],
             "defaultSortMeasure": "count",
             "defaultTimezone": "Etc/UTC",
+            "description": "Wiki description",
             "dimensions": [
               {
-                "expression": {
-                  "name": "time",
-                  "op": "ref"
-                },
+                "formula": "$time",
                 "kind": "time",
                 "name": "time",
                 "title": "Time"
               },
               {
-                "expression": {
-                  "name": "articleName",
-                  "op": "ref"
-                },
+                "formula": "$articleName",
                 "kind": "string",
                 "name": "articleName",
                 "title": "Article Name"
               }
             ],
-            "engine": "druid",
-            "introspection": "none",
             "measures": [
               {
-                "expression": {
-                  "action": {
-                    "action": "sum",
-                    "expression": {
-                      "name": "count",
-                      "op": "ref"
-                    }
-                  },
-                  "expression": {
-                    "name": "main",
-                    "op": "ref"
-                  },
-                  "op": "chain"
-                },
+                "formula": "$main.sum($count)",
                 "name": "count",
                 "title": "Count"
               },
               {
-                "expression": {
-                  "action": {
-                    "action": "sum",
-                    "expression": {
-                      "name": "added",
-                      "op": "ref"
-                    }
-                  },
-                  "expression": {
-                    "name": "main",
-                    "op": "ref"
-                  },
-                  "op": "chain"
-                },
+                "formula": "$main.sum($added)",
                 "name": "added",
                 "title": "Added"
               }
@@ -202,9 +197,7 @@ describe('AppSettings', () => {
               "time": new Date('2016-04-30T12:39:51.350Z')
             },
             "source": "wiki",
-            "subsetFilter": null,
             "timeAttribute": "time",
-            "description": "Wiki description",
             "title": "Wiki"
           }
         ]

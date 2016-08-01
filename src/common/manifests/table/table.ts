@@ -1,20 +1,52 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { $, SortAction } from 'plywood';
-import { Splits, DataSource, SplitCombine, Colors, Dimension } from '../../models/index';
+import { Splits, DataCube, SplitCombine, Colors, Dimension } from '../../models/index';
 import { CircumstancesHandler } from '../../utils/circumstances-handler/circumstances-handler';
 import { Manifest, Resolve } from '../../models/manifest/manifest';
 
 var handler = CircumstancesHandler.EMPTY()
   .needsAtLeastOneSplit('The Table requires at least one split')
   .otherwise(
-    (splits: Splits, dataSource: DataSource, colors: Colors, current: boolean) => {
+    (splits: Splits, dataCube: DataCube, colors: Colors, current: boolean) => {
       var autoChanged = false;
       splits = splits.map((split, i) => {
+        var splitDimension = splits.get(0).getDimension(dataCube.dimensions);
+        var sortStrategy = splitDimension.sortStrategy;
+
         if (!split.sortAction) {
-          split = split.changeSortAction(dataSource.getDefaultSortAction());
-          autoChanged = true;
+          if (sortStrategy) {
+            if (sortStrategy === 'self') {
+              split = split.changeSortAction(new SortAction({
+                expression: $(splitDimension.name),
+                direction: SortAction.DESCENDING
+              }));
+            } else {
+              split = split.changeSortAction(new SortAction({
+                expression: $(sortStrategy),
+                direction: SortAction.DESCENDING
+              }));
+            }
+          } else {
+            split = split.changeSortAction(dataCube.getDefaultSortAction());
+            autoChanged = true;
+          }
         }
 
-        var splitDimension = splits.get(0).getDimension(dataSource.dimensions);
 
         // ToDo: review this
         if (!split.limitAction && (autoChanged || splitDimension.kind !== 'time')) {

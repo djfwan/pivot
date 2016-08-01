@@ -1,15 +1,29 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 const expect = require('chai').expect;
-const spawn = require('child_process').spawn;
 const request = require('request');
 const mockDruid = require('../utils/mock-druid');
 const extend = require('../utils/extend');
+const spawnServer = require('../utils/spawn-server');
 const extractConfig = require('../utils/extract-config');
 
 const TEST_PORT = 18082;
-
-var child;
-var ready = false;
-var stdall = '';
+var pivotServer;
+var druidServer;
 
 var segmentMetadataResponse = [
   {
@@ -62,7 +76,7 @@ describe('reintrospect on load with datasource', function () {
   var dataLoaded = false;
 
   before((done) => {
-    mockDruid(28089, {
+    druidServer = mockDruid({
       onDataSources: function() {
         return {
           json: dataLoaded ? ['wikipedia'] : []
@@ -99,24 +113,16 @@ describe('reintrospect on load with datasource', function () {
             throw new Error(`unknown query ${query.queryType}`);
         }
       }
-    }).then(function() {
-      child = spawn('bin/pivot', `-c test/configs/reintrospect-on-load-datasource.yaml -p ${TEST_PORT}`.split(' '), {
-        env: extend(process.env, {
-          DRUID_HOST: 'localhost:28089'
-        })
-      });
+    }, function(err, port) {
+      if (err) return done(err);
 
-      child.stderr.on('data', (data) => {
-        stdall += data.toString();
-      });
-
-      child.stdout.on('data', (data) => {
-        stdall += data.toString();
-        if (!ready && stdall.indexOf(`Cluster 'druid' could not introspect 'wiki' because: No such datasource`) !== -1) {
-          ready = true;
-          done();
+      pivotServer = spawnServer(`bin/pivot -c test/configs/reintrospect-on-load-datasource.yaml -p ${TEST_PORT}`, {
+        env: {
+          DRUID_HOST: `localhost:${port}`
         }
       });
+
+      pivotServer.onHook(`Cluster 'druid' could not introspect 'wiki' because: No such datasource`, done);
     });
   });
 
@@ -130,7 +136,7 @@ describe('reintrospect on load with datasource', function () {
       expect(body).to.contain('</html>');
 
       var config = extractConfig(body);
-      expect(config.appSettings.dataSources.map((ds) => ds.name)).to.deep.equal([]);
+      expect(config.appSettings.dataCubes.map((ds) => ds.name)).to.deep.equal([]);
 
       testComplete();
     });
@@ -148,14 +154,15 @@ describe('reintrospect on load with datasource', function () {
       expect(body).to.contain('</html>');
 
       var config = extractConfig(body);
-      expect(config.appSettings.dataSources.map((ds) => ds.name)).to.deep.equal(['wiki']);
+      expect(config.appSettings.dataCubes.map((ds) => ds.name)).to.deep.equal(['wiki']);
 
       testComplete();
     });
   });
 
   after(() => {
-    child.kill('SIGHUP');
+    pivotServer.kill();
+    druidServer.kill();
   });
 
 });

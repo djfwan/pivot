@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { $, SortAction } from 'plywood';
 import { Locale } from '../../common/utils/time/time';
 
@@ -32,13 +48,15 @@ export const STRINGS: any = {
   copyUrl: 'Copy URL',
   copyValue: 'Copy value',
   current: 'Current',
-  dataSources: 'Data Cubes',
+  dataCubes: 'Data Cubes',
   dimensions: 'Dimensions',
   download: 'Download',
+  editThisCube: 'Edit this cube',
   end: 'End',
   exclude: 'Exclude',
   exportToCSV: 'Export to CSV',
   filter: 'Filter',
+  generalSettings: 'General settings',
   goToUrl: 'Go to URL',
   granularity: 'Granularity',
   home: 'Pivot',
@@ -51,7 +69,7 @@ export const STRINGS: any = {
   measures: 'Measures',
   noDescription: 'No description',
   noFilter: 'No filter',
-  noQueryableDataSources: 'There are no queryable data sources configured',
+  noQueryableDataCubes: 'There are no queryable data cubes configured',
   ok: 'OK',
   openIn: 'Open in',
   pin: 'Pin',
@@ -75,6 +93,15 @@ export const STRINGS: any = {
   timezone: 'Timezone',
   updateTimezone: 'Update Timezone',
   viewRawData: 'View raw data'
+};
+
+// Data cubes introspection strategies
+export const DATA_CUBES_STRATEGIES_LABELS = {
+  none: 'None',
+  'no-autofill': 'No autofill',
+  'autofill-dimensions-only': 'Autofill dimensions only',
+  'autofill-measures-only': 'Autofill measures only',
+  'autofill-all': 'Autofill all'
 };
 
 

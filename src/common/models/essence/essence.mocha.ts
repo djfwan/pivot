@@ -1,16 +1,32 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { expect } from 'chai';
 import { testImmutableClass } from 'immutable-class/build/tester';
 
 import { $, Expression } from 'plywood';
 import { MANIFESTS } from "../../manifests/index";
 import { Essence, EssenceJS } from './essence';
-import { DataSource, Introspection } from "../data-source/data-source";
+import { DataCube, Introspection } from "../data-cube/data-cube";
 
 describe('Essence', () => {
-  var dataSourceJS = {
+  var dataCubeJS = {
     name: 'twitter',
     title: 'Twitter',
-    engine: 'druid',
+    clusterName: 'druid',
     source: 'twitter',
     introspection: ('none' as Introspection),
     dimensions: [
@@ -18,20 +34,20 @@ describe('Essence', () => {
         kind: 'time',
         name: 'time',
         title: 'Time',
-        expression: '$time'
+        formula: '$time'
       },
       {
         kind: 'string',
         name: 'twitterHandle',
         title: 'Twitter Handle',
-        expression: '$twitterHandle'
+        formula: '$twitterHandle'
       }
     ],
     measures: [
       {
         name: 'count',
         title: 'count',
-        expression: '$main.count()'
+        formula: '$main.count()'
       }
     ],
     timeAttribute: 'time',
@@ -46,9 +62,9 @@ describe('Essence', () => {
     }
   };
 
-  var dataSource = DataSource.fromJS(dataSourceJS);
+  var dataCube = DataCube.fromJS(dataCubeJS);
 
-  var context = { dataSource, visualizations: MANIFESTS };
+  var context = { dataCube, visualizations: MANIFESTS };
 
   it('is an immutable class', () => {
     testImmutableClass<EssenceJS>(Essence, [
@@ -175,9 +191,9 @@ describe('Essence', () => {
   });
 
 
-  describe('.fromDataSource', () => {
+  describe('.fromDataCube', () => {
     it('works in the base case', () => {
-      var essence = Essence.fromDataSource(dataSource, context);
+      var essence = Essence.fromDataCube(dataCube, context);
 
       expect(essence.toJS()).to.deep.equal({
         "filter": {

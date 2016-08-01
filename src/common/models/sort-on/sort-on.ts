@@ -1,8 +1,24 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Class, Instance, isInstanceOf } from 'immutable-class';
 import { $, Expression, RefExpression, SortAction } from 'plywood';
 import { Dimension, DimensionJS } from '../dimension/dimension';
 import { Measure, MeasureJS } from '../measure/measure';
-import { DataSource } from '../data-source/data-source';
+import { DataCube } from '../data-cube/data-cube';
 
 export interface SortOnValue {
   dimension?: Dimension;
@@ -41,10 +57,10 @@ export class SortOn implements Instance<SortOnValue, SortOnJS> {
     return new SortOn({ measure });
   }
 
-  static fromSortAction(sortAction: SortAction, dataSource: DataSource, fallbackDimension: Dimension): SortOn {
+  static fromSortAction(sortAction: SortAction, dataCube: DataCube, fallbackDimension: Dimension): SortOn {
     if (!sortAction) return SortOn.fromDimension(fallbackDimension);
     var sortOnName = (sortAction.expression as RefExpression).name;
-    var measure = dataSource.getMeasure(sortOnName);
+    var measure = dataCube.getMeasure(sortOnName);
     if (measure) return SortOn.fromMeasure(measure);
     return SortOn.fromDimension(fallbackDimension);
   }

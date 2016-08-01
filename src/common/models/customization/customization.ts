@@ -1,4 +1,21 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Class, Instance, isInstanceOf, isImmutableClass, immutableArraysEqual } from 'immutable-class';
+import { ImmutableUtils } from '../../utils/index';
 import { Timezone } from 'chronoshift';
 import { ExternalView, ExternalViewValue} from '../external-view/external-view';
 
@@ -136,12 +153,12 @@ export class Customization implements Instance<CustomizationValue, Customization
     return title.replace(/%v/g, version);
   }
 
+  change(propertyName: string, newValue: any): Customization {
+    return ImmutableUtils.change(this, propertyName, newValue);
+  }
+
   public changeTitle(title: string): Customization {
-    var value = this.valueOf();
-
-    value.title = title;
-
-    return new Customization(value);
+    return this.change('title', title);
   }
 
   public getTimezones() {

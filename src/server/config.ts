@@ -1,10 +1,26 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import * as path from 'path';
 import * as nopt from 'nopt';
 import { arraySum } from '../common/utils/general/general';
-import { Cluster, DataSource, SupportedType, AppSettings } from '../common/models/index';
-import { clusterToYAML, dataSourceToYAML } from '../common/utils/yaml-helper/yaml-helper';
+import { Cluster, DataCube, SupportedType, AppSettings } from '../common/models/index';
+import { clusterToYAML, dataCubeToYAML } from '../common/utils/yaml-helper/yaml-helper';
 import { ServerSettings, ServerSettingsJS } from './models/server-settings/server-settings';
-import { loadFileSync, SettingsManager, SettingsLocation, Logger, CONSOLE_LOGGER, NULL_LOGGER } from './utils/index';
+import { loadFileSync, SettingsManager, SettingsLocation, Logger, LOGGER, initLogger, Tracker, TRACKER, initTracker } from './utils/index';
 
 const AUTH_MODULE_VERSION = 1;
 const PACKAGE_FILE = path.join(__dirname, '../../package.json');
@@ -60,7 +76,7 @@ Data connection options:
   
   -c, --config <path>          Use this local configuration (YAML) file
       --examples               Start Pivot with some example data for testing / demo  
-  -f, --file <path>            Start Pivot on top of this file based data source (must be JSON, CSV, or TSV)
+  -f, --file <path>            Start Pivot on top of this file based data cube (must be JSON, CSV, or TSV)
   -d, --druid <host>           The Druid broker node to connect to
       --postgres <host>        The Postgres cluster to connect to
       --mysql <host>           The MySQL cluster to connect to
@@ -85,6 +101,7 @@ function parseArgs() {
       "examples": Boolean,
       "example": String, // deprecated
       "config": String,
+      "auth": String,
 
       "print-config": Boolean,
       "with-comments": Boolean,
@@ -146,12 +163,9 @@ if (numSettingsInputs > 1) {
 export const PRINT_CONFIG = Boolean(parsedArgs['print-config']);
 export const START_SERVER = !PRINT_CONFIG;
 
-export const LOGGER: Logger = START_SERVER ? CONSOLE_LOGGER : NULL_LOGGER;
+if (START_SERVER) initLogger();
 
-if (START_SERVER) {
-  LOGGER.log(`Starting Pivot v${VERSION}`);
-}
-
+// Load server settings
 var serverSettingsFilePath = parsedArgs['config'];
 
 if (parsedArgs['examples']) {
@@ -182,9 +196,9 @@ export const SERVER_SETTINGS = ServerSettings.fromJS(serverSettingsJS, anchorPat
 
 // --- Auth -------------------------------
 
-var auth = serverSettingsJS.auth;
+var auth = parsedArgs['auth'] || serverSettingsJS.auth;
 var authMiddleware: any = null;
-if (auth) {
+if (auth && auth !== 'none') {
   auth = path.resolve(anchorPath, auth);
   LOGGER.log(`Using auth ${auth}`);
   try {
@@ -200,10 +214,27 @@ if (auth) {
   authMiddleware = authModule.auth({
     logger: LOGGER,
     verbose: VERBOSE,
-    version: VERSION
+    version: VERSION,
+    serverSettings: SERVER_SETTINGS
   });
 }
 export const AUTH = authMiddleware;
+
+// --- Tracker --------------------------------
+
+if (START_SERVER) {
+  var trackingUrl = SERVER_SETTINGS.getTrackingUrl();
+  if (trackingUrl) {
+    initTracker(VERSION, trackingUrl, SERVER_SETTINGS.getTrackingContext());
+  }
+
+  LOGGER.log(`Starting Pivot v${VERSION}`);
+  TRACKER.track({
+    eventType: 'pivot_init',
+    metric: 'init',
+    value: 1
+  });
+}
 
 // --- Location -------------------------------
 
@@ -219,12 +250,12 @@ if (serverSettingsFilePath) {
 } else {
   var initAppSettings = AppSettings.BLANK;
 
-  // If a file is specified add it as a dataSource
+  // If a file is specified add it as a dataCube
   var fileToLoad = parsedArgs['file'];
   if (fileToLoad) {
-    initAppSettings = initAppSettings.addDataSource(new DataSource({
+    initAppSettings = initAppSettings.addDataCube(new DataCube({
       name: path.basename(fileToLoad, path.extname(fileToLoad)),
-      engine: 'native',
+      clusterName: 'native',
       source: fileToLoad
     }));
   }
@@ -257,7 +288,7 @@ export const SETTINGS_MANAGER = new SettingsManager(settingsLocation, {
   logger: LOGGER,
   verbose: VERBOSE,
   anchorPath,
-  initialLoadTimeout: SERVER_SETTINGS.pageMustLoadTimeout
+  initialLoadTimeout: SERVER_SETTINGS.getPageMustLoadTimeout()
 });
 
 // --- Printing -------------------------------
@@ -268,9 +299,9 @@ if (PRINT_CONFIG) {
   SETTINGS_MANAGER.getSettings({
     timeout: 10000
   }).then(appSettings => {
-    var { dataSources, clusters } = appSettings;
+    var { dataCubes, clusters } = appSettings;
 
-    if (!dataSources.length) throw new Error('Could not find any data sources, please verify network connectivity');
+    if (!dataCubes.length) throw new Error('Could not find any data cubes, please verify network connectivity');
 
     var lines = [
       `# generated by Pivot version ${VERSION}`,
@@ -295,8 +326,8 @@ if (PRINT_CONFIG) {
       lines = lines.concat.apply(lines, clusters.map(c => clusterToYAML(c, withComments)));
     }
 
-    lines.push('dataSources:');
-    lines = lines.concat.apply(lines, dataSources.map(d => dataSourceToYAML(d, withComments)));
+    lines.push('dataCubes:');
+    lines = lines.concat.apply(lines, dataCubes.map(d => dataCubeToYAML(d, withComments)));
 
     console.log(lines.join('\n'));
   }).catch((e: Error) => {

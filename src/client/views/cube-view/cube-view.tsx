@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./cube-view.css');
 
 import * as React from 'react';
@@ -5,8 +21,9 @@ import * as ReactDOM from 'react-dom';
 import { Expression, Dataset } from 'plywood';
 import { Timezone } from 'chronoshift';
 import { Fn } from '../../../common/utils/general/general';
+import { FunctionSlot } from '../../utils/function-slot/function-slot';
 import { DragManager } from '../../utils/drag-manager/drag-manager';
-import { Colors, Clicker, DataSource, Dimension, Essence, Filter, Stage, Measure,
+import { Colors, Clicker, DataCube, Dimension, Essence, Filter, Stage, Measure,
   SplitCombine, Splits, VisStrategy, VisualizationProps, User, Customization, Manifest } from '../../../common/models/index';
 import { MANIFESTS } from '../../../common/manifests/index';
 
@@ -36,9 +53,10 @@ export interface CubeViewProps extends React.Props<any> {
   hash: string;
   updateViewHash: (newHash: string, force?: boolean) => void;
   getUrlPrefix?: () => string;
-  dataSource: DataSource;
+  dataCube: DataCube;
   onNavClick?: Fn;
   customization?: Customization;
+  transitionFnSlot?: FunctionSlot<string>;
 }
 
 export interface CubeViewState {
@@ -49,6 +67,7 @@ export interface CubeViewState {
   showRawDataModal?: boolean;
   RawDataModalAsync?: typeof RawDataModal;
   layout?: CubeViewLayout;
+  deviceSize?: string;
   updatingMaxTime?: boolean;
 }
 
@@ -153,33 +172,45 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
 
   refreshMaxTime() {
     var { essence } = this.state;
-    var { dataSource } = essence;
+    var { dataCube } = essence;
     this.setState({ updatingMaxTime: true });
 
-    DataSource.updateMaxTime(dataSource)
-      .then((updatedDataSource) => {
+    DataCube.updateMaxTime(dataCube)
+      .then((updatedDataCube) => {
         if (!this.mounted) return;
-        this.setState({ essence: essence.updateDataSource(updatedDataSource), updatingMaxTime: false  });
+        this.setState({ essence: essence.updateDataCube(updatedDataCube), updatingMaxTime: false  });
       });
   }
 
   componentWillMount() {
-    var { hash, dataSource, updateViewHash } = this.props;
-    var essence = this.getEssenceFromHash(hash);
+    var { hash, dataCube, updateViewHash } = this.props;
+    var essence = this.getEssenceFromHash(dataCube, hash);
     if (!essence) {
-      if (!dataSource) throw new Error('must have data source');
-      essence = this.getEssenceFromDataSource(dataSource);
+      if (!dataCube) throw new Error('must have data cube');
+      essence = this.getEssenceFromDataCube(dataCube);
       updateViewHash(essence.toHash(), true);
     }
     this.setState({ essence });
   }
 
   componentDidMount() {
+    const { transitionFnSlot } = this.props;
+
     this.mounted = true;
     DragManager.init();
     window.addEventListener('resize', this.globalResizeListener);
     window.addEventListener('keydown', this.globalKeyDownListener);
     this.globalResizeListener();
+
+    if (transitionFnSlot) {
+      transitionFnSlot.fill((oldDataCube: DataCube, newDataCube: DataCube) => {
+        if (newDataCube === oldDataCube || !newDataCube.sameGroup(oldDataCube)) return null;
+        const { essence } = this.state;
+        if (!essence) return null;
+        return '#' + newDataCube.name + '/' + essence.updateDataCube(newDataCube).toHash();
+      });
+    }
+
     require.ensure(['../../components/raw-data-modal/raw-data-modal'], (require) => {
       this.setState({
         RawDataModalAsync: require('../../components/raw-data-modal/raw-data-modal').RawDataModal
@@ -188,20 +219,17 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
   }
 
   componentWillReceiveProps(nextProps: CubeViewProps) {
-    const { hash, dataSource, updateViewHash } = this.props;
-    if (!nextProps.dataSource) throw new Error('must have data source');
+    const { hash, dataCube, updateViewHash } = this.props;
+    if (!nextProps.dataCube) throw new Error('must have data cube');
 
-    if (hash !== nextProps.hash) {
-      var hashEssence = this.getEssenceFromHash(nextProps.hash);
+    if (dataCube.name !== nextProps.dataCube.name || hash !== nextProps.hash) {
+      var hashEssence = this.getEssenceFromHash(nextProps.dataCube, nextProps.hash);
       if (!hashEssence) {
-        hashEssence = this.getEssenceFromDataSource(nextProps.dataSource);
+        hashEssence = this.getEssenceFromDataCube(nextProps.dataCube);
         updateViewHash(hashEssence.toHash(), true);
       }
 
       this.setState({ essence: hashEssence });
-    } else if (!dataSource.equals(nextProps.dataSource)) {
-      var newEssence = this.getEssenceFromDataSource(nextProps.dataSource);
-      this.setState({ essence: newEssence });
     }
   }
 
@@ -214,20 +242,22 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
   }
 
   componentWillUnmount() {
+    const { transitionFnSlot } = this.props;
+
     this.mounted = false;
     window.removeEventListener('resize', this.globalResizeListener);
     window.removeEventListener('keydown', this.globalKeyDownListener);
+    if (transitionFnSlot) transitionFnSlot.clear();
   }
 
-  getEssenceFromDataSource(dataSource: DataSource): Essence {
-    const essence = Essence.fromDataSource(dataSource, { dataSource: dataSource, visualizations: MANIFESTS });
+  getEssenceFromDataCube(dataCube: DataCube): Essence {
+    const essence = Essence.fromDataCube(dataCube, { dataCube: dataCube, visualizations: MANIFESTS });
     return essence.multiMeasureMode !== Boolean(localStorage.get('is-multi-measure')) ? essence.toggleMultiMeasureMode() : essence;
   }
 
-  getEssenceFromHash(hash: string): Essence {
-    if (!hash) return null;
-    var { dataSource } = this.props;
-    return Essence.fromHash(hash, { dataSource: dataSource, visualizations: MANIFESTS });
+  getEssenceFromHash(dataCube: DataCube, hash: string): Essence {
+    if (!dataCube || !hash) return null;
+    return Essence.fromHash(hash, { dataCube: dataCube, visualizations: MANIFESTS });
   }
 
   globalKeyDownListener(e: KeyboardEvent) {
@@ -239,7 +269,13 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
     var containerDOM = ReactDOM.findDOMNode(container);
     var visualizationDOM = ReactDOM.findDOMNode(visualization);
     if (!containerDOM || !visualizationDOM) return;
+
+    let deviceSize = 'large';
+    if (window.innerWidth <= 1250) deviceSize = 'medium';
+    if (window.innerWidth <= 1080) deviceSize = 'small';
+
     this.setState({
+      deviceSize,
       menuStage: Stage.fromClientRect(containerDOM.getBoundingClientRect()),
       visualizationStage: Stage.fromClientRect(visualizationDOM.getBoundingClientRect())
     });
@@ -251,6 +287,7 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
 
   dragEnter(e: DragEvent) {
     if (!this.canDrop(e)) return;
+    e.preventDefault();
     this.setState({ dragOver: true });
   }
 
@@ -343,7 +380,7 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
     var clicker = this.clicker;
 
     var { getUrlPrefix, onNavClick, user, customization } = this.props;
-    var { layout, essence, menuStage, visualizationStage, dragOver, updatingMaxTime } = this.state;
+    var { deviceSize, layout, essence, menuStage, visualizationStage, dragOver, updatingMaxTime } = this.state;
 
     if (!essence) return null;
 
@@ -376,6 +413,14 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
       pinboardPanel: {width: layout.pinboardWidth}
     };
 
+    if (deviceSize === 'small') {
+      styles = {
+        dimensionMeasurePanel: {width: 200},
+        centerPanel: {left: 200, right: 200},
+        pinboardPanel: {width: 200}
+      };
+    }
+
     return <div className='cube-view'>
       <CubeHeaderBar
         clicker={clicker}
@@ -402,14 +447,14 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
           getUrlPrefix={getUrlPrefix}
         />
 
-        <ResizeHandle
+        {deviceSize !== 'small' ? <ResizeHandle
           side="left"
           initialValue={layout.dimensionPanelWidth}
           onResize={this.onDimensionPanelResize.bind(this)}
           onResizeEnd={this.onPanelResizeEnd.bind(this)}
           min={MIN_PANEL_WIDTH}
           max={MAX_PANEL_WIDTH}
-        />
+        /> : null}
 
         <div className='center-panel' style={styles.centerPanel}>
           <div className='center-top-bar'>
@@ -442,19 +487,20 @@ export class CubeView extends React.Component<CubeViewProps, CubeViewState> {
               className="drag-mask"
               onDragOver={this.dragOver.bind(this)}
               onDragLeave={this.dragLeave.bind(this)}
+              onDragExit={this.dragLeave.bind(this)}
               onDrop={this.drop.bind(this)}
             /> : null}
           </div>
         </div>
 
-        <ResizeHandle
+        {deviceSize !== 'small' ? <ResizeHandle
           side="right"
           initialValue={layout.pinboardWidth}
           onResize={this.onPinboardPanelResize.bind(this)}
           onResizeEnd={this.onPanelResizeEnd.bind(this)}
           min={MIN_PANEL_WIDTH}
           max={MAX_PANEL_WIDTH}
-        />
+        /> : null}
 
         <PinboardPanel
           style={styles.pinboardPanel}

@@ -1,9 +1,25 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./measures-tile.css');
 
 import * as React from 'react';
 
 import { STRINGS, PIN_TITLE_HEIGHT, MEASURE_HEIGHT, PIN_PADDING_BOTTOM, MAX_SEARCH_LENGTH } from '../../config/constants';
-import { Clicker, Essence, DataSource, Filter, Dimension, Measure } from '../../../common/models/index';
+import { Clicker, Essence, DataCube, Filter, Dimension, Measure } from '../../../common/models/index';
 import { classNames } from '../../utils/dom/dom';
 import * as localStorage from '../../utils/local-storage/local-storage';
 
@@ -69,13 +85,13 @@ export class MeasuresTile extends React.Component<MeasuresTileProps, MeasuresTil
   render() {
     var { essence, style } = this.props;
     var { showSearch, searchText } = this.state;
-    var { dataSource } = essence;
+    var { dataCube } = essence;
     var multiMeasureMode = essence.getEffectiveMultiMeasureMode();
     var selectedMeasures = essence.getEffectiveSelectedMeasure();
 
     var checkboxType: CheckboxType = multiMeasureMode ? 'check' : 'radio';
 
-    var shownMeasures = dataSource.measures.toArray();
+    var shownMeasures = dataCube.measures.toArray();
     if (searchText) {
       shownMeasures = shownMeasures.filter((r) => {
         return r.title.toLowerCase().indexOf(searchText.toLowerCase()) !== -1;

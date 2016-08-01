@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 @import '../../imports';
 
 .cube-view {
@@ -14,6 +30,11 @@
   }
 
   .center-panel {
+    @include for-small-screens {
+      top: 0;
+      bottom: 0;
+    }
+
     position: absolute;
     top: $tile-margin-v;
     bottom: $tile-margin-v;
@@ -50,6 +71,9 @@
 
     .center-main {
       @include unpin-top($control-tile-height + 1px + $control-tile-height + $small-tile-margin);
+      @include for-small-screens {
+        @include unpin-top($control-tile-height + 2px + $control-tile-height);
+      }
 
       .visualization {
         @extend %module;
@@ -75,6 +99,10 @@
 
   .pinboard-panel {
     @include pin-right($pinboard-width);
+    @include for-small-screens {
+      margin-bottom: 0;
+    }
+
     margin-bottom: $tile-margin-v - 1px;
 
     .pinboard-measure-tile,

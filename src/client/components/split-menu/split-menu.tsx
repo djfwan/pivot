@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./split-menu.css');
 
 import * as React from "react";
@@ -23,7 +39,7 @@ import { STRINGS } from "../../config/constants";
 import { enterKey } from "../../utils/dom/dom";
 import { SvgIcon } from "../svg-icon/svg-icon";
 import { BubbleMenu } from "../bubble-menu/bubble-menu";
-import { Dropdown, DropdownProps } from "../dropdown/dropdown";
+import { Dropdown } from "../dropdown/dropdown";
 import { ButtonGroup } from "../button-group/button-group";
 
 function formatLimit(limit: number | string): string {
@@ -61,11 +77,11 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
 
   componentWillMount() {
     var { essence, split } = this.props;
-    var { dataSource, colors } = essence;
+    var { dataCube, colors } = essence;
 
     var myColors: Colors = null;
     if (colors) {
-      var colorDimension = dataSource.getDimension(colors.dimension);
+      var colorDimension = dataCube.getDimension(colors.dimension);
       if (colorDimension.expression.equals(split.expression)) {
         myColors = colors;
       }
@@ -151,7 +167,7 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
   getSortOn(): SortOn {
     var { essence, dimension } = this.props;
     var { split } = this.state;
-    return SortOn.fromSortAction(split.sortAction, essence.dataSource, dimension);
+    return SortOn.fromSortAction(split.sortAction, essence.dataCube, dimension);
   }
 
   renderGranularityPicker(type: ContinuousDimensionKind) {
@@ -175,18 +191,19 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
   renderSortDropdown() {
     var { essence, dimension } = this.props;
 
-    var mds = [SortOn.fromDimension(dimension)].concat(essence.dataSource.measures.toArray().map(SortOn.fromMeasure));
-    var md = this.getSortOn();
+    var sortOns = [SortOn.fromDimension(dimension)].concat(essence.dataCube.measures.toArray().map(SortOn.fromMeasure));
 
-    return React.createElement(Dropdown, {
-      label: STRINGS.sortBy,
-      items: mds,
-      selectedItem: md,
-      equal: SortOn.equal,
-      renderItem: SortOn.getTitle,
-      keyItem: SortOn.getName,
-      onSelect: this.onSelectSortOn.bind(this)
-    } as DropdownProps<SortOn>);
+    const SortOnDropdown = Dropdown.specialize<SortOn>();
+
+    return <SortOnDropdown
+      label={STRINGS.sortBy}
+      items={sortOns}
+      selectedItem={this.getSortOn()}
+      equal={SortOn.equal}
+      renderItem={SortOn.getTitle}
+      keyItem={SortOn.getName}
+      onSelect={this.onSelectSortOn.bind(this)}
+    />;
   }
 
   renderSortDirection() {
@@ -214,13 +231,16 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
     }
 
     if (includeNone) items.unshift(null);
-    return React.createElement(Dropdown, {
-      label: STRINGS.limit,
-      items,
-      selectedItem,
-      renderItem: formatLimit,
-      onSelect: this.onSelectLimit.bind(this)
-    } as DropdownProps<number | string>);
+
+    const MyDropdown = Dropdown.specialize<number | string>();
+
+    return <MyDropdown
+      label={STRINGS.limit}
+      items={items}
+      selectedItem={selectedItem}
+      renderItem={formatLimit}
+      onSelect={this.onSelectLimit.bind(this)}
+    />;
   }
 
   renderTimeControls() {

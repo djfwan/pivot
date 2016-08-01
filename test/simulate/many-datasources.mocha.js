@@ -1,15 +1,29 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 const expect = require('chai').expect;
-const spawn = require('child_process').spawn;
 const request = require('request');
 const mockDruid = require('../utils/mock-druid');
 const extractConfig = require('../utils/extract-config');
+const spawnServer = require('../utils/spawn-server');
 const extend = require('../utils/extend');
 
 const TEST_PORT = 18082;
-
-var child;
-var ready = false;
-var stdall = '';
+var pivotServer;
+var druidServer;
 
 var wikipediaSegmentMetadataResponse = [
   {
@@ -93,8 +107,8 @@ var githubSegmentMetadataResponse = [
 ];
 
 var hasData = false;
-function startDruid() {
-  return mockDruid(28083, {
+function startDruid(callback) {
+  return mockDruid({
     onDataSources: function() {
       if (hasData) {
         return {
@@ -148,31 +162,20 @@ function startDruid() {
           throw new Error(`unknown query ${query.queryType}`);
       }
     }
-  });
+  }, callback);
 }
 
 describe('many datasources', function () {
   this.timeout(30000);
 
   before((done) => {
-    child = spawn('bin/pivot', `-c test/configs/two-little-datasources.yaml -p ${TEST_PORT}`.split(' '), {
-      env: extend(process.env, {
-        DRUID_HOST: 'localhost:28083'
-      })
-    });
-
-    child.stderr.on('data', (data) => {
-      stdall += data.toString();
-    });
-
-    child.stdout.on('data', (data) => {
-      stdall += data.toString();
-      if (!ready && stdall.indexOf(`Pivot is listening on address`) !== -1) {
-        ready = true;
-        done();
+    pivotServer = spawnServer(`bin/pivot -c test/configs/two-little-datasources.yaml -p ${TEST_PORT}`, {
+      env: {
+        DRUID_HOST: 'localhost:28082'
       }
     });
 
+    pivotServer.onHook('Pivot is listening on address', done);
   });
 
   it('works with GET / before Druid start', (testComplete) => {
@@ -185,16 +188,18 @@ describe('many datasources', function () {
       expect(body).to.contain('</html>');
 
       var config = extractConfig(body);
-      expect(config.appSettings.dataSources.length);
+      expect(config.appSettings.dataCubes.length);
 
       testComplete();
     });
   });
 
   it('works with GET / after Druid start (no data)', (testComplete) => {
-    startDruid()
-      .delay(21000) // needed for now because pivot only check connectivity every 20s
-      .then(() => {
+    druidServer = startDruid((err, port) => {
+      if (err) testComplete(err);
+
+      // timeout needed for now because pivot only check connectivity every 20s
+      setTimeout(() => {
         request.get(`http://localhost:${TEST_PORT}/`, (err, response, body) => {
           expect(err).to.equal(null);
           expect(response.statusCode).to.equal(200);
@@ -204,7 +209,7 @@ describe('many datasources', function () {
           expect(body).to.contain('</html>');
 
           var config = extractConfig(body);
-          expect(config.appSettings.dataSources.map((d) => d.name)).to.deep.equal([]);
+          expect(config.appSettings.dataCubes.map((d) => d.name)).to.deep.equal([]);
 
           hasData = true;
 
@@ -217,17 +222,19 @@ describe('many datasources', function () {
             expect(body).to.contain('</html>');
 
             var config = extractConfig(body);
-            expect(config.appSettings.dataSources.map((d) => d.name)).to.deep.equal(["wiki", "github"]);
+            expect(config.appSettings.dataCubes.map((d) => d.name)).to.deep.equal(["wiki", "github"]);
 
             testComplete();
           });
         });
+      }, 21000);
 
-      });
+    });
   });
 
   after(() => {
-    child.kill('SIGHUP');
+    pivotServer.kill();
+    druidServer.kill();
   });
 
 });

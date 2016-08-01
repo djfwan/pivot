@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./cube-header-bar.css');
 
 import * as React from 'react';
@@ -8,7 +24,7 @@ import { Fn } from '../../../common/utils/general/general';
 import { classNames } from "../../utils/dom/dom";
 
 import { SvgIcon } from '../svg-icon/svg-icon';
-import { Clicker, Essence, DataSource, User, Customization, ExternalView } from '../../../common/models/index';
+import { Clicker, Essence, DataCube, User, Customization, ExternalView } from '../../../common/models/index';
 
 import { HilukMenu } from '../hiluk-menu/hiluk-menu';
 import { AutoRefreshMenu } from '../auto-refresh-menu/auto-refresh-menu';
@@ -56,13 +72,13 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
 
   componentDidMount() {
     this.mounted = true;
-    const { dataSource } = this.props.essence;
-    this.setAutoRefreshFromDataSource(dataSource);
+    const { dataCube } = this.props.essence;
+    this.setAutoRefreshFromDataCube(dataCube);
   }
 
   componentWillReceiveProps(nextProps: CubeHeaderBarProps) {
-    if (this.props.essence.dataSource.name !== nextProps.essence.dataSource.name) {
-      this.setAutoRefreshFromDataSource(nextProps.essence.dataSource);
+    if (this.props.essence.dataCube.name !== nextProps.essence.dataCube.name) {
+      this.setAutoRefreshFromDataCube(nextProps.essence.dataCube);
     }
 
     if (!this.props.updatingMaxTime && nextProps.updatingMaxTime) {
@@ -79,8 +95,8 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
     this.clearTimerIfExists();
   }
 
-  setAutoRefreshFromDataSource(dataSource: DataSource) {
-    const { refreshRule } = dataSource;
+  setAutoRefreshFromDataCube(dataCube: DataCube) {
+    const { refreshRule } = dataCube;
     if (refreshRule.isFixed()) return;
     this.setAutoRefreshRate(refreshRule.refresh);
   }
@@ -175,7 +191,8 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
       autoRefreshRate={autoRefreshRate}
       setAutoRefreshRate={this.setAutoRefreshRate.bind(this)}
       refreshMaxTime={refreshMaxTime}
-      dataSource={essence.dataSource}
+      dataCube={essence.dataCube}
+      timezone={essence.timezone}
     />;
   }
 
@@ -230,11 +247,13 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
   }
 
   renderSettingsMenu() {
-    const { changeTimezone, timezone, customization } = this.props;
+    const { changeTimezone, timezone, customization, essence, user } = this.props;
     const { settingsMenuOpen } = this.state;
     if (!settingsMenuOpen) return null;
 
     return <SettingsMenu
+      dataCube={essence.dataCube}
+      user={user}
       timezone={timezone}
       timezones={customization.getTimezones()}
       changeTimezone={changeTimezone}
@@ -267,7 +286,7 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
         <div className="menu-icon">
           <SvgIcon svg={require('../../icons/menu.svg')}/>
         </div>
-        <div className="title">{essence.dataSource.title}</div>
+        <div className="title">{essence.dataCube.title}</div>
       </div>
       <div className="right-bar">
         <div className={classNames("icon-button", "auto-refresh", { "refreshing": animating })} onClick={this.onAutoRefreshMenuClick.bind(this)}>

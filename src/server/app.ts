@@ -1,8 +1,25 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import * as express from 'express';
 import { Request, Response, Router, Handler } from 'express';
+import * as hsts from 'hsts';
 
 import * as path from 'path';
-import * as logger from 'morgan';
+import * as morgan from 'morgan';
 import * as bodyParser from 'body-parser';
 import * as compress from 'compression';
 
@@ -14,26 +31,88 @@ if (!WallTime.rules) {
 }
 
 import { GetSettingsOptions } from '../server/utils/settings-manager/settings-manager';
-import { PivotRequest } from './utils/index';
-import { VERSION, AUTH, SERVER_SETTINGS, SETTINGS_MANAGER, LOGGER } from './config';
+import { PivotRequest, LOGGER, TRACKER } from './utils/index';
+import { VERSION, AUTH, SERVER_SETTINGS, SETTINGS_MANAGER } from './config';
 import * as plywoodRoutes from './routes/plywood/plywood';
 import * as plyqlRoutes from './routes/plyql/plyql';
 import * as pivotRoutes from './routes/pivot/pivot';
 import * as settingsRoutes from './routes/settings/settings';
 import * as mkurlRoutes from './routes/mkurl/mkurl';
 import * as healthRoutes from './routes/health/health';
+import * as errorRoutes from './routes/error/error';
+
 import { errorLayout } from './views';
+
+function makeGuard(guard: string): Handler {
+  return (req: PivotRequest, res: Response, next: Function) => {
+    const user = req.user;
+    if (!user) {
+      next(new Error('no user'));
+      return;
+    }
+
+    const { allow } = user;
+    if (!allow) {
+      next(new Error('no user.allow'));
+      return;
+    }
+
+    if (!allow[guard]) {
+      next(new Error('not allowed'));
+      return;
+    }
+
+    next();
+  };
+}
 
 var app = express();
 app.disable('x-powered-by');
 
-function addRoutes(attach: string, router: Router | Handler): void {
-  app.use(attach, router);
-  app.use(SERVER_SETTINGS.serverRoot + attach, router);
+if (SERVER_SETTINGS.getTrustProxy() === 'always') {
+  app.set('trust proxy', 1); // trust first proxy
 }
 
+function addRoutes(attach: string, router: Router | Handler): void {
+  app.use(attach, router);
+  app.use(SERVER_SETTINGS.getServerRoot() + attach, router);
+}
+
+function addGuardedRoutes(attach: string, guard: string, router: Router | Handler): void {
+  var guardHandler = makeGuard(guard);
+  app.use(attach, guardHandler, router);
+  app.use(SERVER_SETTINGS.getServerRoot() + attach, guardHandler, router);
+}
+
+// Add compression
 app.use(compress());
-app.use(logger('dev'));
+
+// Add request logging and tracking
+var morganFormat = SERVER_SETTINGS.getRequestLogFormat();
+var morgenFormatFunction = morgan.compile((morgan as any)[morganFormat] || morganFormat);
+app.use(morgan((m: any, req: PivotRequest, res: Response) => {
+  TRACKER.track({
+    eventType: 'request',
+    attr: {
+      url: m['url'](req, res),
+      method: m['method'](req, res),
+      status: m['status'](req, res)
+    },
+    user: req.user,
+    metric: 'request/time',
+    value: Number(m['response-time'](req, res))
+  });
+  return morgenFormatFunction(m, req, res);
+}));
+
+// Add Strict Transport Security
+if (SERVER_SETTINGS.getStrictTransportSecurity() === "always") {
+  app.use(hsts({
+    maxAge: 10886400000,     // Must be at least 18 weeks to be approved by Google
+    includeSubDomains: true, // Must be enabled to be approved by Google
+    preload: true
+  }));
+}
 
 addRoutes('/health', healthRoutes);
 
@@ -56,19 +135,34 @@ app.use((req: PivotRequest, res: Response, next: Function) => {
 
 if (AUTH) {
   app.use(AUTH);
+} else {
+  app.use((req: PivotRequest, res: Response, next: Function) => {
+    if (process.env['PIVOT_ENABLE_SETTINGS']) {
+      req.user = {
+        id: 'admin',
+        email: 'admin@admin.com',
+        displayName: 'Admin',
+        allow: {
+          settings: true
+        }
+      };
+    }
+    next();
+  });
 }
 
 // Data routes
 addRoutes('/plywood', plywoodRoutes);
 addRoutes('/plyql', plyqlRoutes);
 addRoutes('/mkurl', mkurlRoutes);
+addRoutes('/error', errorRoutes);
 
 if (process.env['PIVOT_ENABLE_SETTINGS']) {
-  addRoutes('/settings', settingsRoutes);
+  addGuardedRoutes('/settings', 'settings', settingsRoutes);
 }
 
 // View routes
-if (SERVER_SETTINGS.iframe === 'deny') {
+if (SERVER_SETTINGS.getIframe() === 'deny') {
   app.use((req: PivotRequest, res: Response, next: Function) => {
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");

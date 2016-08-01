@@ -1,10 +1,26 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./string-filter-menu.css');
 
 import * as React from 'react';
 import { $, ply, r, Expression, Executor, Dataset, SortAction, Set, Datum } from 'plywood';
 import { Fn } from '../../../common/utils/general/general';
 import { STRINGS, MAX_SEARCH_LENGTH, SEARCH_WAIT } from '../../config/constants';
-import { Stage, Clicker, Essence, DataSource, Filter, FilterClause, FilterMode, Dimension, Measure, Colors, DragPosition } from '../../../common/models/index';
+import { Stage, Clicker, Essence, DataCube, Filter, FilterClause, FilterMode, Dimension, Measure, Colors, DragPosition } from '../../../common/models/index';
 import { collect } from '../../../common/utils/general/general';
 import { enterKey, classNames } from '../../utils/dom/dom';
 import { ClearableInput } from '../clearable-input/clearable-input';
@@ -13,7 +29,6 @@ import { Loader } from '../loader/loader';
 import { QueryError } from '../query-error/query-error';
 import { HighlightString } from '../highlight-string/highlight-string';
 import { Button } from '../button/button';
-import { Dropdown, DropdownProps } from "../dropdown/dropdown";
 import { SvgIcon } from '../svg-icon/svg-icon';
 import { FilterOptionsDropdown } from '../filter-options-dropdown/filter-options-dropdown';
 
@@ -67,8 +82,8 @@ export class StringFilterMenu extends React.Component<StringFilterMenuProps, Str
 
   fetchData(essence: Essence, dimension: Dimension): void {
     var { searchText } = this.state;
-    var { dataSource } = essence;
-    var nativeCount = dataSource.getMeasure('count');
+    var { dataCube } = essence;
+    var nativeCount = dataCube.getMeasure('count');
     var measureExpression = nativeCount ? nativeCount.expression : $('main').count();
 
     var filterExpression = essence.getEffectiveFilter(null, dimension).toExpression();
@@ -88,7 +103,7 @@ export class StringFilterMenu extends React.Component<StringFilterMenuProps, Str
       loading: true,
       fetchQueued: false
     });
-    dataSource.executor(query, { timezone: essence.timezone })
+    dataCube.executor(query, { timezone: essence.timezone })
       .then(
         (dataset: Dataset) => {
           if (!this.mounted) return;
@@ -141,7 +156,7 @@ export class StringFilterMenu extends React.Component<StringFilterMenuProps, Str
     var nextDimension = nextProps.dimension;
 
     if (
-      essence.differentDataSource(nextEssence) ||
+      essence.differentDataCube(nextEssence) ||
       essence.differentEffectiveFilter(nextEssence, null, nextDimension) || !dimension.equals(nextDimension)
     ) {
       this.fetchData(nextEssence, nextDimension);

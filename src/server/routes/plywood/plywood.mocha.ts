@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import * as Q from 'q';
 import * as express from 'express';
 import { Response } from 'express';
@@ -20,7 +36,7 @@ var appSettings: AppSettings = AppSettingsMock.wikiOnlyWithExecutor();
 app.use((req: PivotRequest, res: Response, next: Function) => {
   req.user = null;
   req.version = '0.9.4';
-  req.getSettings = (dataSourceOfInterest?: string) => Q(appSettings);
+  req.getSettings = (dataCubeOfInterest?: string) => Q(appSettings);
   next();
 });
 
@@ -43,7 +59,7 @@ describe('plywood router', () => {
       }, testComplete);
   });
 
-  it('must have dataSource', (testComplete) => {
+  it('must have dataCube', (testComplete) => {
     supertest(app)
       .post('/')
       .set('Content-Type', "application/json")
@@ -54,7 +70,7 @@ describe('plywood router', () => {
       .expect('Content-Type', "application/json; charset=utf-8")
       .expect(400)
       .expect({
-        "error": "must have a dataSource"
+        "error": "must have a dataCube"
       }, testComplete);
   });
 
@@ -65,7 +81,7 @@ describe('plywood router', () => {
       .send({
         version: '0.9.4',
         expression: $('main').count().toJS(),
-        dataSource: 'wiki'
+        dataCube: 'wiki'
       })
       .expect('Content-Type', "application/json; charset=utf-8")
       .expect(200)
@@ -86,7 +102,7 @@ describe('plywood router', () => {
           .sort('$Count', 'descending')
           .limit(2)
           .toJS(),
-        dataSource: 'wiki'
+        dataSource: 'wiki' // back compat
       })
       .expect('Content-Type', "application/json; charset=utf-8")
       .expect(200)

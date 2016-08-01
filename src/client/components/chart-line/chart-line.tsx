@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./chart-line.css');
 
 import { immutableEqual } from 'immutable-class';
@@ -52,7 +68,7 @@ export class ChartLine extends React.Component<ChartLineProps, ChartLineState> {
         var prevRange = getX(prevDatum) as PlywoodRange;
         if (prevRange.end.valueOf() !== range.start.valueOf()) {
           dataPoints.push([
-            scaleX(rangeMidpoint.valueOf() - (range.end.valueOf() - range.start.valueOf())),
+            scaleX(rangeMidpoint.valueOf() - ((range.end.valueOf() as any) - (range.start.valueOf() as any))),
             scaleY(0)
           ]);
         }
@@ -72,7 +88,7 @@ export class ChartLine extends React.Component<ChartLineProps, ChartLineState> {
         var nextRange = getX(nextDatum) as PlywoodRange;
         if (range.end.valueOf() !== nextRange.start.valueOf()) {
           dataPoints.push([
-            scaleX(rangeMidpoint.valueOf() + (range.end.valueOf() - range.start.valueOf())),
+            scaleX(rangeMidpoint.valueOf() + ((range.end.valueOf() as any) - (range.start.valueOf() as any))),
             scaleY(0)
           ]);
         }

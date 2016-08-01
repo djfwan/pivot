@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./filter-tile.css');
 
 import * as React from 'react';
@@ -5,7 +21,7 @@ import * as ReactDOM from 'react-dom';
 import * as Q from 'q';
 import { Timezone, Duration, hour, day, week } from 'chronoshift';
 import { STRINGS, CORE_ITEM_WIDTH, CORE_ITEM_GAP } from '../../config/constants';
-import { Stage, Clicker, Essence, DataSource, Filter, FilterClause, Dimension, DragPosition } from '../../../common/models/index';
+import { Stage, Clicker, Essence, DataCube, Filter, FilterClause, Dimension, DragPosition } from '../../../common/models/index';
 import { getFormattedClause } from '../../../common/utils/formatter/formatter';
 import { getMaxItems, SECTION_WIDTH } from '../../utils/pill-tile/pill-tile';
 
@@ -251,6 +267,7 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
 
   dragEnter(e: DragEvent) {
     if (!this.canDrop(e)) return;
+    e.preventDefault();
     var dragPosition = this.calculateDragPosition(e);
     if (dragPosition.equals(this.state.dragPosition)) return;
     this.setState({ dragPosition });
@@ -273,7 +290,7 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
     if (!this.canDrop(e)) return;
     e.preventDefault();
     var { clicker, essence } = this.props;
-    var { filter, dataSource } = essence;
+    var { filter, dataCube } = essence;
 
     var newState: FilterTileState = {
       dragPosition: null
@@ -286,7 +303,7 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
       var tryingToReplaceTime = false;
       if (dragPosition.replace !== null) {
         var targetClause = filter.clauses.get(dragPosition.replace);
-        tryingToReplaceTime = targetClause && targetClause.expression.equals(dataSource.timeAttribute);
+        tryingToReplaceTime = targetClause && targetClause.expression.equals(dataCube.timeAttribute);
       }
 
       var existingClause = filter.clauseForExpression(dimension.expression);
@@ -415,8 +432,8 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
 
   renderRemoveButton(itemBlank: ItemBlank) {
     var { essence } = this.props;
-    var dataSource = essence.dataSource;
-    if (itemBlank.dimension.expression.equals(dataSource.timeAttribute)) return null;
+    var dataCube = essence.dataCube;
+    if (itemBlank.dimension.expression.equals(dataCube.timeAttribute)) return null;
     return <div className="remove" onClick={this.removeFilter.bind(this, itemBlank)}>
       <SvgIcon svg={require('../../icons/x.svg')}/>
     </div>;
@@ -446,7 +463,7 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
       dimension === menuDimension ? 'selected' : undefined
     ].filter(Boolean).join(' ');
 
-    var evaluatedClause = dimension.kind === 'time' ? essence.evaluateClause(clause) : clause;
+    var evaluatedClause = dimension.kind === 'time' && clause ? essence.evaluateClause(clause) : clause;
     var timezone = essence.timezone;
 
     if (source === 'from-highlight') {
@@ -492,11 +509,11 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
     var { essence } = this.props;
     var { possibleDimension, possiblePosition, maxItems } = this.state;
 
-    var { dataSource, filter, highlight } = essence;
+    var { dataCube, filter, highlight } = essence;
 
     var itemBlanks = filter.clauses.toArray()
       .map((clause): ItemBlank => {
-        var dimension = dataSource.getDimensionByExpression(clause.expression);
+        var dimension = dataCube.getDimensionByExpression(clause.expression);
         if (!dimension) return null;
         return {
           dimension,
@@ -522,7 +539,7 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
           }
         });
         if (!added) {
-          var dimension = dataSource.getDimensionByExpression(clause.expression);
+          var dimension = dataCube.getDimensionByExpression(clause.expression);
           if (dimension) {
             itemBlanks.push({
               dimension,
@@ -583,6 +600,7 @@ export class FilterTile extends React.Component<FilterTileProps, FilterTileState
         className="drag-mask"
         onDragOver={this.dragOver.bind(this)}
         onDragLeave={this.dragLeave.bind(this)}
+        onDragExit={this.dragLeave.bind(this)}
         onDrop={this.drop.bind(this)}
       /> : null}
       {this.renderMenu()}

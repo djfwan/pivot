@@ -1,5 +1,21 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { $, SortAction } from 'plywood';
-import { Splits, DataSource, SplitCombine, Colors, Dimension } from '../../models/index';
+import { Splits, DataCube, SplitCombine, Colors, Dimension } from '../../models/index';
 import { Manifest, Resolve } from '../../models/manifest/manifest';
 import { CircumstancesHandler } from '../../utils/circumstances-handler/circumstances-handler';
 
@@ -8,18 +24,29 @@ var handler = CircumstancesHandler.EMPTY()
 
   .when(CircumstancesHandler.areExactSplitKinds('*'))
   .or(CircumstancesHandler.areExactSplitKinds('*', '*'))
-  .then((splits: Splits, dataSource: DataSource, colors: Colors, current: boolean) => {
+  .then((splits: Splits, dataCube: DataCube, colors: Colors, current: boolean) => {
     var continuousBoost = 0;
 
     // Auto adjustment
     var autoChanged = false;
 
     splits = splits.map((split: SplitCombine) => {
-      var splitDimension = dataSource.getDimensionByExpression(split.expression);
-
+      var splitDimension = dataCube.getDimensionByExpression(split.expression);
+      var sortStrategy = splitDimension.sortStrategy;
       if (!split.sortAction) {
-        // Must sort boolean in deciding order!
-        if (splitDimension.kind === 'boolean') {
+        if (sortStrategy) {
+          if (sortStrategy === 'self') {
+            split = split.changeSortAction(new SortAction({
+              expression: $(splitDimension.name),
+              direction: SortAction.DESCENDING
+            }));
+          } else {
+            split = split.changeSortAction(new SortAction({
+              expression: $(sortStrategy),
+              direction: SortAction.DESCENDING
+            }));
+          }
+        } else if (splitDimension.kind === 'boolean') {  // Must sort boolean in deciding order!
           split = split.changeSortAction(new SortAction({
             expression: $(splitDimension.name),
             direction: SortAction.DESCENDING
@@ -31,11 +58,11 @@ var handler = CircumstancesHandler.EMPTY()
               direction: SortAction.ASCENDING
             }));
           } else {
-            split = split.changeSortAction(dataSource.getDefaultSortAction());
+            split = split.changeSortAction(dataCube.getDefaultSortAction());
           }
         }
         autoChanged = true;
-      } else if (splitDimension.isContinuous() && split.sortAction.refName() !== splitDimension.name) {
+      } else if (splitDimension.canBucket() && split.sortAction.refName() !== splitDimension.name) {
         split = split.changeSortAction(new SortAction({
           expression: $(splitDimension.name),
           direction: split.sortAction.direction
@@ -69,8 +96,8 @@ var handler = CircumstancesHandler.EMPTY()
   })
 
   .otherwise(
-    (splits: Splits, dataSource: DataSource) => {
-      let categoricalDimensions = dataSource.dimensions.filter((d) => d.kind !== 'time');
+    (splits: Splits, dataCube: DataCube) => {
+      let categoricalDimensions = dataCube.dimensions.filter((d) => d.kind !== 'time');
 
       return Resolve.manual(
         3,

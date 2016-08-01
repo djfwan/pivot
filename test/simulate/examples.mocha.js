@@ -1,32 +1,37 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 const expect = require('chai').expect;
-const spawn = require('child_process').spawn;
 const request = require('request');
 const plywood = require('plywood');
+const spawnServer = require('../utils/spawn-server');
 
 const $ = plywood.$;
 const ply = plywood.ply;
 const r = plywood.r;
 
 const TEST_PORT = 18082;
-
-var child;
+var pivotServer;
 
 describe('examples', function () {
   this.timeout(5000);
 
   before((done) => {
-    child = spawn('bin/pivot', `--examples -p ${TEST_PORT}`.split(' '));
-
-    child.stderr.on('data', (data) => {
-      throw new Error(data.toString());
-    });
-
-    child.stdout.on('data', (data) => {
-      data = data.toString();
-      if (data.indexOf(`Pivot is listening on address`) !== -1) {
-        done();
-      }
-    });
+    pivotServer = spawnServer(`bin/pivot --examples -p ${TEST_PORT}`);
+    pivotServer.onHook('Pivot is listening on address', done);
   });
 
   it('works with GET /health', (testComplete) => {
@@ -56,7 +61,7 @@ describe('examples', function () {
       method: 'POST',
       url: `http://localhost:${TEST_PORT}/plywood`,
       json: {
-        dataSource: 'wiki',
+        dataCube: 'wiki',
         timezone: 'Etc/UTC',
         expression: $('main').split('$channel', 'Channel')
           .apply('Added', '$main.sum($added)')
@@ -92,7 +97,7 @@ describe('examples', function () {
       url: `http://localhost:${TEST_PORT}/mkurl`,
       json: {
         domain: 'http://localhost:9090',
-        dataSource: 'wiki',
+        dataCube: 'wiki',
         essence: {
           visualization: 'totals',
           timezone: 'Etc/UTC',
@@ -116,7 +121,7 @@ describe('examples', function () {
   });
 
   after(() => {
-    child.kill('SIGHUP');
+    pivotServer.kill();
   });
 
 });

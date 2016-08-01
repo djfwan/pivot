@@ -1,14 +1,31 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { $, AttributeInfo, RefExpression } from 'plywood';
-import { DataSource, Dimension, Measure, Cluster } from '../../../common/models/index';
+import { DataCube, Dimension, Measure, Cluster } from '../../../common/models/index';
+import { DATA_CUBE, DIMENSION, MEASURE, CLUSTER } from '../../../common/models/labels';
 
 function spaces(n: number) {
   return (new Array(n + 1)).join(' ');
 }
 
-function yamlObject(lines: string[], indent: number): string[] {
+function yamlObject(lines: string[], indent = 2): string[] {
   var pad = spaces(indent);
   return lines.map((line, i) => {
-    if (line === null) return '';
+    if (line === '') return '';
     return pad + (i ? '  ' : '- ') + line;
   });
 }
@@ -27,14 +44,14 @@ function yamlPropAdder(lines: string[], withComments: boolean, options: PropAdde
   if (value == null) {
     if (withComments && typeof defaultValue !== "undefined") {
       lines.push(
-        null,
+        '',
         `# ${comment}`,
         `#${propName}: ${defaultValue} # <- default`
       );
     }
   } else {
     if (withComments) lines.push(
-      null,
+      '',
       `# ${comment}`
     );
     lines.push(`${propName}: ${value}`);
@@ -49,66 +66,66 @@ export function clusterToYAML(cluster: Cluster, withComments: boolean): string[]
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'type',
-    comment: 'The type of the data store can be (druid, mysql, or postgres)'
+    comment: CLUSTER.type.description
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'host',
-    comment: 'The host (hostname:port) of the cluster. In the Druid case this must be the broker.'
+    comment: CLUSTER.host.description
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'version',
-    comment: 'The explicit version to use for this cluster.'
+    comment: CLUSTER.version.description
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'timeout',
-    comment: 'The timeout to set on the queries in ms.',
+    comment: CLUSTER.timeout.description,
     defaultValue: Cluster.DEFAULT_TIMEOUT
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'sourceListScan',
-    comment: 'Should the sources of this cluster be automatically scanned and new sources added as data sources.',
+    comment: CLUSTER.sourceListScan.description,
     defaultValue: Cluster.DEFAULT_SOURCE_LIST_SCAN
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'sourceListRefreshOnLoad',
-    comment: 'Should the list of sources be reloaded every time that Pivot is loaded.',
+    comment: CLUSTER.sourceListRefreshOnLoad.description,
     defaultValue: false
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'sourceListRefreshInterval',
-    comment: 'How often should sources be reloaded in ms.',
+    comment: CLUSTER.sourceListRefreshInterval.description,
     defaultValue: Cluster.DEFAULT_SOURCE_LIST_REFRESH_INTERVAL
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'sourceReintrospectOnLoad',
-    comment: 'Should sources be scanned for additional dimensions every time that Pivot is loaded.',
+    comment: CLUSTER.sourceReintrospectOnLoad.description,
     defaultValue: false
   });
 
   yamlPropAdder(lines, withComments, {
     object: cluster,
     propName: 'sourceReintrospectInterval',
-    comment: 'How often should source schema be reloaded in ms.',
+    comment: CLUSTER.sourceReintrospectInterval.description,
     defaultValue: Cluster.DEFAULT_SOURCE_REINTROSPECT_INTERVAL
   });
 
   if (withComments) {
     lines.push(
-      null,
+      '',
       `# Database specific (${cluster.type}) ===============`
     );
   }
@@ -150,8 +167,8 @@ export function clusterToYAML(cluster: Cluster, withComments: boolean): string[]
       break;
   }
 
-  lines.push(null);
-  return yamlObject(lines, 2);
+  lines.push('');
+  return yamlObject(lines);
 }
 
 
@@ -165,8 +182,8 @@ export function attributeToYAML(attribute: AttributeInfo): string[] {
     lines.push(`special: ${attribute.special}`);
   }
 
-  lines.push(null);
-  return yamlObject(lines, 6);
+  lines.push('');
+  return yamlObject(lines);
 }
 
 export function dimensionToYAML(dimension: Dimension): string[] {
@@ -179,10 +196,10 @@ export function dimensionToYAML(dimension: Dimension): string[] {
     lines.push(`kind: ${dimension.kind}`);
   }
 
-  lines.push(`expression: ${dimension.expression.toString()}`);
+  lines.push(`formula: ${dimension.formula}`);
 
-  lines.push(null);
-  return yamlObject(lines, 6);
+  lines.push('');
+  return yamlObject(lines);
 }
 
 export function measureToYAML(measure: Measure): string[] {
@@ -191,232 +208,218 @@ export function measureToYAML(measure: Measure): string[] {
     `title: ${measure.title}`
   ];
 
-  var ex = measure.expression;
-  lines.push(`expression: ${ex.toString()}`);
+  lines.push(`formula: ${measure.formula}`);
 
   var format = measure.format;
   if (format !== Measure.DEFAULT_FORMAT) {
     lines.push(`format: ${format}`);
   }
 
-  lines.push(null);
-  return yamlObject(lines, 6);
+  lines.push('');
+  return yamlObject(lines);
 }
 
-export function dataSourceToYAML(dataSource: DataSource, withComments: boolean): string[] {
+export function dataCubeToYAML(dataCube: DataCube, withComments: boolean): string[] {
   var lines: string[] = [
-    `  - name: ${dataSource.name}`,
-    `    title: ${dataSource.title}`,
-    `    engine: ${dataSource.engine}`,
-    `    source: ${dataSource.source}`,
-    ``
+    `name: ${dataCube.name}`,
+    `title: ${dataCube.title}`,
+    `clusterName: ${dataCube.clusterName}`,
+    `source: ${dataCube.source}`
   ];
 
-  var timeAttribute = dataSource.timeAttribute;
-  if (timeAttribute && !(dataSource.engine === 'druid' && timeAttribute.name === '__time')) {
+  var timeAttribute = dataCube.timeAttribute;
+  if (timeAttribute && !(dataCube.clusterName === 'druid' && timeAttribute.name === '__time')) {
     if (withComments) {
-      lines.push("    # The primary time attribute of the data refers to the attribute that must always be filtered on");
-      lines.push("    # This is particularly useful for Druid data sources as they must always have a time filter.");
+      lines.push(`# The primary time attribute of the data refers to the attribute that must always be filtered on`);
+      lines.push(`# This is particularly useful for Druid data cubes as they must always have a time filter.`);
     }
-    lines.push(`    timeAttribute: ${timeAttribute.name}`, '');
+    lines.push(`timeAttribute: ${timeAttribute.name}`, '');
   }
 
 
-  var refreshRule = dataSource.refreshRule;
+  var refreshRule = dataCube.refreshRule;
   if (withComments) {
-    lines.push("    # The refresh rule describes how often the data source looks for new data. Default: 'query'/PT1M (every minute)");
+    lines.push("# The refresh rule describes how often the data cube looks for new data. Default: 'query'/PT1M (every minute)");
   }
-  lines.push(`    refreshRule:`);
-  lines.push(`      rule: ${refreshRule.rule}`);
+  lines.push(`refreshRule:`);
+  lines.push(`  rule: ${refreshRule.rule}`);
   if (refreshRule.time) {
-    lines.push(`      time: ${refreshRule.time.toISOString()}`);
+    lines.push(`  time: ${refreshRule.time.toISOString()}`);
   }
   if (refreshRule.refresh) {
-    lines.push(`      refresh: ${refreshRule.refresh.toString()}`);
+    lines.push(`  refresh: ${refreshRule.refresh.toString()}`);
   }
   lines.push('');
 
+  yamlPropAdder(lines, withComments, {
+    object: dataCube,
+    propName: 'defaultTimezone',
+    comment: DATA_CUBE.defaultTimezone.description,
+    defaultValue: DataCube.DEFAULT_DEFAULT_TIMEZONE
+  });
 
-  var defaultTimezone = dataSource.defaultTimezone;
+  yamlPropAdder(lines, withComments, {
+    object: dataCube,
+    propName: 'defaultDuration',
+    comment: DATA_CUBE.defaultDuration.description,
+    defaultValue: DataCube.DEFAULT_DEFAULT_DURATION
+  });
+
+  yamlPropAdder(lines, withComments, {
+    object: dataCube,
+    propName: 'defaultSortMeasure',
+    comment: DATA_CUBE.defaultSortMeasure.description,
+    defaultValue: dataCube.getDefaultSortMeasure()
+  });
+
+  var defaultSelectedMeasures = dataCube.defaultSelectedMeasures ? dataCube.defaultSelectedMeasures.toArray() : null;
   if (withComments) {
-    lines.push("    # The default timezone for this dataset to operate in defaults to UTC");
-  }
-  if (defaultTimezone.equals(DataSource.DEFAULT_TIMEZONE)) {
-    if (withComments) {
-      lines.push(`    #defaultTimezone: ${DataSource.DEFAULT_TIMEZONE.toString()}`, '');
-    }
-  } else {
-    lines.push(`    defaultTimezone: ${defaultTimezone.toString()}}`, '');
-  }
-
-
-  var defaultDuration = dataSource.defaultDuration;
-  if (withComments) {
-    lines.push(`    # The default duration for the time filter (if not set ${DataSource.DEFAULT_DURATION.toString()} is used)`);
-  }
-  if (defaultDuration.equals(DataSource.DEFAULT_DURATION)) {
-    if (withComments) {
-      lines.push(`    #defaultDuration: ${DataSource.DEFAULT_DURATION.toString()}`, '');
-    }
-  } else {
-    lines.push(`    defaultDuration: ${defaultDuration.toString()}`, '');
-  }
-
-
-  var defaultSortMeasure = dataSource.defaultSortMeasure;
-  if (withComments) {
-    lines.push("    # The default sort measure name (if not set the first measure name is used)");
-  }
-  lines.push(`    defaultSortMeasure: ${defaultSortMeasure}`, '');
-
-
-  var defaultSelectedMeasures = dataSource.defaultSelectedMeasures ? dataSource.defaultSelectedMeasures.toArray() : null;
-  if (withComments) {
-    lines.push("    # The names of measures that are selected by default");
+    lines.push('', "# The names of measures that are selected by default");
   }
   if (defaultSelectedMeasures) {
-    lines.push(`    defaultSelectedMeasures: ${JSON.stringify(defaultSelectedMeasures)}`, '');
+    lines.push(`defaultSelectedMeasures: ${JSON.stringify(defaultSelectedMeasures)}`);
   } else if (withComments) {
-    lines.push(`    #defaultSelectedMeasures: []`, '');
+    lines.push(`#defaultSelectedMeasures: []`);
   }
 
 
-  var defaultPinnedDimensions = dataSource.defaultPinnedDimensions ? dataSource.defaultPinnedDimensions.toArray() : null;
+  var defaultPinnedDimensions = dataCube.defaultPinnedDimensions ? dataCube.defaultPinnedDimensions.toArray() : null;
   if (withComments) {
-    lines.push("    # The names of dimensions that are pinned by default (in order that they will appear in the pin bar)");
+    lines.push('', "# The names of dimensions that are pinned by default (in order that they will appear in the pin bar)");
   }
   if (defaultPinnedDimensions) {
-    lines.push(`    defaultPinnedDimensions: ${JSON.stringify(defaultPinnedDimensions)}`, '');
+    lines.push('', `defaultPinnedDimensions: ${JSON.stringify(defaultPinnedDimensions)}`);
   } else if (withComments) {
-    lines.push(`    #defaultPinnedDimensions: []`, '');
+    lines.push('', `#defaultPinnedDimensions: []`);
   }
 
 
-  var introspection = dataSource.introspection;
+  var introspection = dataCube.getIntrospection();
   if (withComments) {
     lines.push(
-      "    # How the dataset should be introspected",
-      "    # possible options are:",
-      "    # * none - Do not do any introspection, take what is written in the config as the rule of law.",
-      "    # * no-autofill - Introspect the datasource but do not automatically generate dimensions or measures",
-      "    # * autofill-dimensions-only - Introspect the datasource, automatically generate dimensions only",
-      "    # * autofill-measures-only - Introspect the datasource, automatically generate measures only",
-      "    # * autofill-all - (default) Introspect the datasource, automatically generate dimensions and measures"
+      "",
+      "# How the dataset should be introspected",
+      "# possible options are:",
+      "# * none - Do not do any introspection, take what is written in the config as the rule of law.",
+      "# * no-autofill - Introspect the datasource but do not automatically generate dimensions or measures",
+      "# * autofill-dimensions-only - Introspect the datasource, automatically generate dimensions only",
+      "# * autofill-measures-only - Introspect the datasource, automatically generate measures only",
+      "# * autofill-all - (default) Introspect the datasource, automatically generate dimensions and measures"
     );
   }
-  lines.push(`    introspection: ${introspection}`, '');
+  lines.push(`introspection: ${introspection}`);
 
 
-  var attributeOverrides = dataSource.attributeOverrides;
+  var attributeOverrides = dataCube.attributeOverrides;
   if (withComments) {
-    lines.push("    # The list of attribute overrides in case introspection get something wrong");
+    lines.push('', "# The list of attribute overrides in case introspection get something wrong");
   }
-  lines.push('    attributeOverrides:');
+  lines.push('attributeOverrides:');
   if (withComments) {
     lines.push(
-      "      # A general attribute override looks like so:",
-      "      #",
-      "      # name: user_unique",
-      "      # ^ the name of the attribute (the column in the database)",
-      "      #",
-      "      # type: STRING",
-      "      # ^ (optional) plywood type of the attribute",
-      "      #",
-      "      # special: unique",
-      "      # ^ (optional) any kind of special significance associated with this attribute",
+      "  # A general attribute override looks like so:",
+      "  #",
+      "  # name: user_unique",
+      "  # ^ the name of the attribute (the column in the database)",
+      "  #",
+      "  # type: STRING",
+      "  # ^ (optional) plywood type of the attribute",
+      "  #",
+      "  # special: unique",
+      "  # ^ (optional) any kind of special significance associated with this attribute",
       ""
     );
   }
   lines = lines.concat.apply(lines, attributeOverrides.map(attributeToYAML));
 
 
-  var dimensions = dataSource.dimensions.toArray();
+  var dimensions = dataCube.dimensions.toArray();
   if (withComments) {
-    lines.push("    # The list of dimensions defined in the UI. The order here will be reflected in the UI");
+    lines.push('', "# The list of dimensions defined in the UI. The order here will be reflected in the UI");
   }
-  lines.push('    dimensions:');
+  lines.push('dimensions:');
   if (withComments) {
     lines.push(
-      "      # A general dimension looks like so:",
-      "      #",
-      "      # name: channel",
-      "      # ^ the name of the dimension as used in the URL (you should try not to change these)",
-      "      #",
-      "      # title: The Channel",
-      "      # ^ (optional) the human readable title. If not set a title is generated from the 'name'",
-      "      #",
-      "      # kind: string",
-      "      # ^ (optional) the kind of the dimension. Can be 'string', 'time', 'number', or 'boolean'. Defaults to 'string'",
-      "      #",
-      "      # expression: $channel",
-      "      # ^ (optional) the Plywood bucketing expression for this dimension. Defaults to '$name'",
-      "      #   if, say, channel was called 'cnl' in the data you would put '$cnl' here",
-      "      #   See also the expressions API reference: https://plywood.imply.io/expressions",
-      "      #",
-      "      # url: string",
-      "      # ^ (optional) a url (including protocol) associated with the dimension, with optional token '%s'",
-      "      #   that is replaced by the dimension value to generate links specific to each value.",
+      "  # A general dimension looks like so:",
+      "  #",
+      "  # name: channel",
+      "  # ^ the name of the dimension as used in the URL (you should try not to change these)",
+      "  #",
+      "  # title: The Channel",
+      "  # ^ (optional) the human readable title. If not set a title is generated from the 'name'",
+      "  #",
+      "  # kind: string",
+      "  # ^ (optional) the kind of the dimension. Can be 'string', 'time', 'number', or 'boolean'. Defaults to 'string'",
+      "  #",
+      "  # formula: $channel",
+      "  # ^ (optional) the Plywood bucketing expression for this dimension. Defaults to '$name'",
+      "  #   if, say, channel was called 'cnl' in the data you would put '$cnl' here",
+      "  #   See also the expressions API reference: https://plywood.imply.io/expressions",
+      "  #",
+      "  # url: string",
+      "  # ^ (optional) a url (including protocol) associated with the dimension, with optional token '%s'",
+      "  #   that is replaced by the dimension value to generate links specific to each value.",
       ""
     );
   }
   lines = lines.concat.apply(lines, dimensions.map(dimensionToYAML));
   if (withComments) {
     lines.push(
-      "      # This is the place where you might want to add derived dimensions.",
-      "      #",
-      "      # Here are some examples of possible derived dimensions:",
-      "      #",
-      "      # - name: is_usa",
-      "      #   title: Is USA?",
-      "      #   expression: $country == 'United States'",
-      "      #",
-      "      # - name: file_version",
-      "      #   expression: $filename.extract('(\\d+\\.\\d+\\.\\d+)')",
+      "  # This is the place where you might want to add derived dimensions.",
+      "  #",
+      "  # Here are some examples of possible derived dimensions:",
+      "  #",
+      "  # - name: is_usa",
+      "  #   title: Is USA?",
+      "  #   formula: $country == 'United States'",
+      "  #",
+      "  # - name: file_version",
+      "  #   formula: $filename.extract('(\\d+\\.\\d+\\.\\d+)')",
       ""
     );
   }
 
 
-  var measures = dataSource.measures.toArray();
+  var measures = dataCube.measures.toArray();
   if (withComments) {
-    lines.push("    # The list of measures defined in the UI. The order here will be reflected in the UI");
+    lines.push('', "# The list of measures defined in the UI. The order here will be reflected in the UI");
   }
-  lines.push(`    measures:`);
+  lines.push(`measures:`);
   if (withComments) {
     lines.push(
-      "      # A general measure looks like so:",
-      "      #",
-      "      # name: avg_revenue",
-      "      # ^ the name of the dimension as used in the URL (you should try not to change these)",
-      "      #",
-      "      # title: Average Revenue",
-      "      # ^ (optional) the human readable title. If not set a title is generated from the 'name'",
-      "      #",
-      "      # expression: $main.sum($revenue) / $main.sum($volume) * 10",
-      "      # ^ (optional) the Plywood bucketing expression for this dimension.",
-      "      #   Usually defaults to '$main.sum($name)' but if the name contains 'min' or 'max' will use that as the aggregate instead of sum.",
-      "      #   this is the place to define your fancy formulas",
+      "  # A general measure looks like so:",
+      "  #",
+      "  # name: avg_revenue",
+      "  # ^ the name of the dimension as used in the URL (you should try not to change these)",
+      "  #",
+      "  # title: Average Revenue",
+      "  # ^ (optional) the human readable title. If not set a title is generated from the 'name'",
+      "  #",
+      "  # formula: $main.sum($revenue) / $main.sum($volume) * 10",
+      "  # ^ (optional) the Plywood bucketing expression for this dimension.",
+      "  #   Usually defaults to '$main.sum($name)' but if the name contains 'min' or 'max' will use that as the aggregate instead of sum.",
+      "  #   this is the place to define your fancy formulas",
       ""
     );
   }
   lines = lines.concat.apply(lines, measures.map(measureToYAML));
   if (withComments) {
     lines.push(
-      "      # This is the place where you might want to add derived measures (a.k.a Post Aggregators).",
-      "      #",
-      "      # Here are some examples of possible derived measures:",
-      "      #",
-      "      # - name: ecpm",
-      "      #   title: eCPM",
-      "      #   expression: $main.sum($revenue) / $main.sum($impressions) * 1000",
-      "      #",
-      "      # - name: usa_revenue",
-      "      #   title: USA Revenue",
-      "      #   expression: $main.filter($country == 'United States').sum($revenue)",
+      "  # This is the place where you might want to add derived measures (a.k.a Post Aggregators).",
+      "  #",
+      "  # Here are some examples of possible derived measures:",
+      "  #",
+      "  # - name: ecpm",
+      "  #   title: eCPM",
+      "  #   formula: $main.sum($revenue) / $main.sum($impressions) * 1000",
+      "  #",
+      "  # - name: usa_revenue",
+      "  #   title: USA Revenue",
+      "  #   formula: $main.filter($country == 'United States').sum($revenue)",
       ""
     );
   }
 
   lines.push('');
-  return lines;
+  return yamlObject(lines);
 }

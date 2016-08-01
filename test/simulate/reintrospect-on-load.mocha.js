@@ -1,16 +1,29 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 const expect = require('chai').expect;
-const spawn = require('child_process').spawn;
 const request = require('request');
 const mockDruid = require('../utils/mock-druid');
 const extend = require('../utils/extend');
+const spawnServer = require('../utils/spawn-server');
 const extractConfig = require('../utils/extract-config');
 
 const TEST_PORT = 18082;
-
-var child;
-var ready = false;
-var stdout = '';
-var stderr = '';
+var pivotServer;
+var druidServer;
 
 var segmentMetadataResponse = [
   {
@@ -64,7 +77,7 @@ describe('reintrospect on load', function () {
   var expectedSegmentMetadataRunNumber = 1;
 
   before((done) => {
-    mockDruid(28082, {
+    druidServer = mockDruid({
       onDataSources: function() {
         return {
           json: ['wikipedia']
@@ -97,24 +110,16 @@ describe('reintrospect on load', function () {
             throw new Error(`unknown query ${query.queryType}`);
         }
       }
-    }).then(function() {
-      child = spawn('bin/pivot', `-c test/configs/reintrospect-on-load.yaml -p ${TEST_PORT}`.split(' '), {
-        env: extend(process.env, {
-          DRUID_HOST: 'localhost:28082'
-        })
-      });
+    }, function(err, port) {
+      if (err) return done(err);
 
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.stdout.on('data', (data) => {
-        stdout += data.toString();
-        if (!ready && stdout.indexOf(`Getting the latest MaxTime for`) !== -1) {
-          ready = true;
-          done();
+      pivotServer = spawnServer(`bin/pivot -c test/configs/reintrospect-on-load.yaml -p ${TEST_PORT}`, {
+        env: {
+          DRUID_HOST: `localhost:${port}`
         }
       });
+
+      pivotServer.onHook(`Getting the latest MaxTime for`, done);
     });
   });
 
@@ -134,45 +139,26 @@ describe('reintrospect on load', function () {
       expect(runSegmentMetadataRunNumber).to.equal(2);
 
       var config = extractConfig(body);
-      expect(config.appSettings.dataSources[0].dimensions).to.deep.equal([
+      expect(config.appSettings.dataCubes[0].dimensions).to.deep.equal([
         {
-          "expression": {
-            "name": "__time",
-            "op": "ref"
-          },
+          "formula": "$__time",
           "kind": "time",
           "name": "__time",
           "title": "Time"
         },
         {
-          "expression": {
-            "name": "channel",
-            "op": "ref"
-          },
+          "formula": "$channel",
           "kind": "string",
           "name": "channel",
           "title": "Channel"
         }
       ]);
 
-      expect(config.appSettings.dataSources[0].measures).to.deep.equal([
+      expect(config.appSettings.dataCubes[0].measures).to.deep.equal([
         {
-          "expression": {
-            "action": {
-              "action": "sum",
-              "expression": {
-                "name": "count",
-                "op": "ref"
-              }
-            },
-            "expression": {
-              "name": "main",
-              "op": "ref"
-            },
-            "op": "chain"
-          },
           "name": "count",
-          "title": "Count"
+          "title": "Count",
+          "formula": "$main.sum($count)"
         }
       ]);
 
@@ -212,72 +198,37 @@ describe('reintrospect on load', function () {
       expect(runSegmentMetadataRunNumber).to.equal(3);
 
       var config = extractConfig(body);
-      expect(config.appSettings.dataSources[0].dimensions).to.deep.equal([
+      expect(config.appSettings.dataCubes[0].dimensions).to.deep.equal([
         {
-          "expression": {
-            "name": "__time",
-            "op": "ref"
-          },
+          "formula": "$__time",
           "kind": "time",
           "name": "__time",
           "title": "Time"
         },
         {
-          "expression": {
-            "name": "channel",
-            "op": "ref"
-          },
+          "formula": "$channel",
           "kind": "string",
           "name": "channel",
           "title": "Channel"
         },
         {
-          "expression": {
-            "name": "page",
-            "op": "ref"
-          },
+          "formula": "$page",
           "kind": "string",
           "name": "page",
           "title": "Page"
         }
       ]);
 
-      expect(config.appSettings.dataSources[0].measures).to.deep.equal([
+      expect(config.appSettings.dataCubes[0].measures).to.deep.equal([
         {
-          "expression": {
-            "action": {
-              "action": "sum",
-              "expression": {
-                "name": "count",
-                "op": "ref"
-              }
-            },
-            "expression": {
-              "name": "main",
-              "op": "ref"
-            },
-            "op": "chain"
-          },
           "name": "count",
-          "title": "Count"
+          "title": "Count",
+          "formula": "$main.sum($count)"
         },
         {
-          "expression": {
-            "action": {
-              "action": "sum",
-              "expression": {
-                "name": "added",
-                "op": "ref"
-              }
-            },
-            "expression": {
-              "name": "main",
-              "op": "ref"
-            },
-            "op": "chain"
-          },
           "name": "added",
-          "title": "Added"
+          "title": "Added",
+          "formula": "$main.sum($added)"
         }
       ]);
 
@@ -286,7 +237,8 @@ describe('reintrospect on load', function () {
   });
 
   after(() => {
-    child.kill('SIGHUP');
+    pivotServer.kill();
+    druidServer.kill();
   });
 
 });

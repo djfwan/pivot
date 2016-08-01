@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import * as path from 'path';
 import * as Q from 'q';
 import { External, helper } from 'plywood';
@@ -187,7 +203,9 @@ export class ClusterManager {
       if (this.sourceListRefreshInterval && cluster.shouldScanSources()) {
         logger.log(`Setting up sourceListRefresh timer in cluster '${cluster.name}' (every ${this.sourceListRefreshInterval}ms)`);
         this.sourceListRefreshTimer = setInterval(() => {
-          this.scanSourceList();
+          this.scanSourceList().catch((e) => {
+            logger.error(`Cluster '${cluster.name}' encountered and error during SourceListRefresh: ${e.message}`);
+          });
         }, this.sourceListRefreshInterval);
         this.sourceListRefreshTimer.unref();
       }
@@ -209,7 +227,9 @@ export class ClusterManager {
       if (this.sourceReintrospectInterval) {
         logger.log(`Setting up sourceReintrospect timer in cluster '${cluster.name}' (every ${this.sourceReintrospectInterval}ms)`);
         this.sourceReintrospectTimer = setInterval(() => {
-          this.introspectSources();
+          this.introspectSources().catch((e) => {
+            logger.error(`Cluster '${cluster.name}' encountered and error during SourceReintrospect: ${e.message}`);
+          });
         }, this.sourceReintrospectInterval);
         this.sourceReintrospectTimer.unref();
       }

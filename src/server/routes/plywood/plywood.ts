@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Router, Request, Response } from 'express';
 import { $, Expression, RefExpression, External, Datum, Dataset, PlywoodValue, TimeRange, basicExecutorFactory, Executor, AttributeJSs, helper } from 'plywood';
 import { Timezone, WallTime, Duration } from 'chronoshift';
@@ -7,7 +23,8 @@ import { PivotRequest } from '../../utils/index';
 var router = Router();
 
 router.post('/', (req: PivotRequest, res: Response) => {
-  var { version, dataSource, expression, timezone } = req.body;
+  var { version, dataCube, dataSource, expression, timezone } = req.body;
+  dataCube = dataCube || dataSource; // back compat
 
   if (version && version !== req.version) {
     res.status(412).send({
@@ -17,9 +34,9 @@ router.post('/', (req: PivotRequest, res: Response) => {
     return;
   }
 
-  if (typeof dataSource !== 'string') {
+  if (typeof dataCube !== 'string') {
     res.status(400).send({
-      error: 'must have a dataSource'
+      error: 'must have a dataCube'
     });
     return;
   }
@@ -48,20 +65,20 @@ router.post('/', (req: PivotRequest, res: Response) => {
     return;
   }
 
-  req.getSettings(dataSource)
+  req.getSettings(dataCube)
     .then((appSettings) => {
-      var myDataSource = appSettings.getDataSource(dataSource);
-      if (!myDataSource) {
-        res.status(400).send({ error: 'unknown data source' });
+      var myDataCube = appSettings.getDataCube(dataCube);
+      if (!myDataCube) {
+        res.status(400).send({ error: 'unknown data cube' });
         return;
       }
 
-      if (!myDataSource.executor) {
-        res.status(400).send({ error: 'un queryable data source' });
+      if (!myDataCube.executor) {
+        res.status(400).send({ error: 'un queryable data cube' });
         return;
       }
 
-      return myDataSource.executor(ex, { timezone: queryTimezone }).then(
+      return myDataCube.executor(ex, { timezone: queryTimezone }).then(
         (data: PlywoodValue) => {
           res.json({
             result: Dataset.isDataset(data) ? data.toJS() : data

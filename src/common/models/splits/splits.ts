@@ -1,9 +1,26 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { List } from 'immutable';
 import { Class, Instance, isInstanceOf, immutableArraysEqual } from 'immutable-class';
 import { Timezone, Duration, day, hour } from 'chronoshift';
 import { $, Expression, RefExpression, TimeRange, TimeBucketAction, SortAction, NumberRange, Range } from 'plywood';
 import { immutableListsEqual } from '../../utils/general/general';
 import { Dimension } from '../dimension/dimension';
+import { Measure } from '../measure/measure';
 import { Filter } from '../filter/filter';
 import { SplitCombine, SplitCombineJS, SplitCombineContext } from '../split-combine/split-combine';
 import { NumberBucketAction } from "plywood";
@@ -99,6 +116,10 @@ export class Splits implements Instance<SplitsValue, SplitsJS> {
     return new Splits(<List<SplitCombine>>this.splitCombines.map(s => s.changeSortAction(sort)));
   }
 
+  public changeSortActionFromNormalized(sort: SortAction, dimensions: List<Dimension>): Splits {
+    return new Splits(<List<SplitCombine>>this.splitCombines.map(s => s.changeSortActionFromNormalized(sort, dimensions)));
+  }
+
   public getTitle(dimensions: List<Dimension>): string {
     return this.splitCombines.map(s => s.getDimension(dimensions).title).join(', ');
   }
@@ -168,7 +189,7 @@ export class Splits implements Instance<SplitsValue, SplitsJS> {
       var splitExpression = splitCombine.expression;
       var splitDimension = dimensions.find(d => splitExpression.equals(d.expression));
       var splitKind = splitDimension.kind;
-      if (!splitDimension || !(splitKind === 'time' || splitKind === 'number')) return splitCombine;
+      if (!splitDimension || !(splitKind === 'time' || splitKind === 'number') || !splitDimension.canBucket()) return splitCombine;
       changed = true;
 
       var selectionSet = filter.getLiteralSet(splitExpression);
@@ -194,11 +215,19 @@ export class Splits implements Instance<SplitsValue, SplitsJS> {
     return changed ? new Splits(newSplitCombines) : this;
   }
 
-  public constrainToDimensions(dimensions: List<Dimension>): Splits {
+  public constrainToDimensionsAndMeasures(dimensions: List<Dimension>, measures: List<Measure>): Splits {
+    function validSplit(split: SplitCombine): boolean {
+      if (!split.getDimension(dimensions)) return false;
+      if (!split.sortAction) return true;
+      var sortRef = split.sortAction.refName();
+      if (!dimensions.find(d => d.name === sortRef) && !measures.find(m => m.name === sortRef)) return false;
+      return true;
+    }
+
     var changed = false;
     var splitCombines: SplitCombine[] = [];
     this.splitCombines.forEach((split) => {
-      if (split.getDimension(dimensions)) {
+      if (validSplit(split)) {
         splitCombines.push(split);
       } else {
         changed = true;
@@ -227,6 +256,20 @@ export class Splits implements Instance<SplitsValue, SplitsJS> {
     });
 
     return changed ? new Splits(newSplitCombines) : this;
+  }
+
+  public getCommonSort(dimensions: List<Dimension>): SortAction {
+    var splitCombines = this.splitCombines.toArray();
+    var commonSort: SortAction = null;
+    for (var splitCombine of splitCombines) {
+      var sort = splitCombine.getNormalizedSortAction(dimensions);
+      if (commonSort) {
+        if (!commonSort.equals(sort)) return null;
+      } else {
+        commonSort = sort;
+      }
+    }
+    return commonSort;
   }
 
 }

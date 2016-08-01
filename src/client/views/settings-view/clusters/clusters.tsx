@@ -1,9 +1,25 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./clusters.css');
 
 import * as React from 'react';
 import { Fn } from '../../../../common/utils/general/general';
+import { firstUp } from '../../../../common/utils/string/string';
 import { classNames } from '../../../utils/dom/dom';
-import { firstUp } from '../../../utils/string/string';
 
 import { SvgIcon } from '../../../components/svg-icon/svg-icon';
 import { FormLabel } from '../../../components/form-label/form-label';
@@ -47,10 +63,19 @@ export class Clusters extends React.Component<ClustersProps, ClustersState> {
     window.location.hash += `/${cluster.name}`;
   }
 
+  renderEmpty(): JSX.Element {
+    return <div className="clusters empty">
+      <div className="title">No clusters</div>
+      <div className="subtitle">(the only data cube type available is 'native')</div>
+    </div>;
+  }
+
   render() {
     const { hasChanged, newSettings } = this.state;
 
     if (!newSettings) return null;
+
+    if (!newSettings.clusters.length) return this.renderEmpty();
 
     const columns: SimpleTableColumn[] = [
       {label: 'Name', field: 'name', width: 200, cellIcon: 'full-cluster'},
@@ -68,12 +93,12 @@ export class Clusters extends React.Component<ClustersProps, ClustersState> {
         {hasChanged ? <Button className="save" title="Save" type="primary" onClick={this.save.bind(this)}/> : null}
       </div>
       <div className="content">
-      <SimpleTable
-        columns={columns}
-        rows={newSettings.clusters}
-        actions={actions}
-        onRowClick={this.editCluster.bind(this)}
-      ></SimpleTable>
+        <SimpleTable
+          columns={columns}
+          rows={newSettings.clusters}
+          actions={actions}
+          onRowClick={this.editCluster.bind(this)}
+        ></SimpleTable>
       </div>
     </div>;
   }

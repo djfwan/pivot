@@ -1,9 +1,26 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 var Q = require('q');
 var http = require('http');
 var express = require('express');
 var bodyParser = require('body-parser');
 
-function mockDruid(port, options) {
+function mockDruid(options, callback) {
+  var port = options.port || 28082;
   var version = options.version || '0.9.1';
 
   var app = express();
@@ -50,33 +67,21 @@ function mockDruid(port, options) {
       throw error;
     }
 
-    // handle specific listen errors with friendly messages
-    switch (error.code) {
-      case 'EACCES':
-        console.error(`Port ${port} requires elevated privileges`);
-        process.exit(1);
-        break;
-
-      case 'EADDRINUSE':
-        console.error(`Port ${port} is already in use`);
-        process.exit(1);
-        break;
-
-      default:
-        throw error;
-    }
+    callback(error);
   });
 
-  var deferred = Q.defer();
-
   server.on('listening', () => {
-    deferred.resolve(null);
+    callback(null, port);
   });
 
   app.set('port', port);
   server.listen(port);
 
-  return deferred.promise;
+  return {
+    kill: function() {
+      server.close();
+    }
+  };
 }
 
 module.exports = mockDruid;

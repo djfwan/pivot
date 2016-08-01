@@ -41,6 +41,29 @@ A custom path to act as the server string. Default: `pivot`
 
 The Pivot UI will be served from `http://pivot-host:$port/` and `http://pivot-host:$port/$serverRoot`
 
+**iframe** ("allow" | "deny")
+
+Specify whether Pivot will be allowed to run in an iFrame.
+If set to 'deny' Pivot will set the following headers:
+
+```
+X-Frame-Options: "DENY"
+Content-Security-Policy: "frame-ancestors 'none'"
+```
+
+This is used to prevent [Clickjacking](http://en.wikipedia.org/wiki/clickjacking).
+Learn more about it on [MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options).
+
+**trustProxy** ("none" | "always")
+
+Should the server trust the `X-Forwarded-*` headers.
+
+**strictTransportSecurity** ("none" | "always")
+
+Specify that Pivot should set the [StrictTransportSecurity](https://developer.mozilla.org/en-US/docs/Web/Security/HTTP_strict_transport_security) header.
+
+Note that Pivot can itself only run an http server.
+This option is intended to be used when when Pivot is running behind a HTTPS terminator like AWS ELB.
 
 ## Configuring the Clusters
 
@@ -52,7 +75,7 @@ Each cluster has the following properties:
 
 **name** (string)
 
-The name of the cluster (to be referenced later from the data sources)
+The name of the cluster (to be referenced later from the data cube)
 
 **type** ('druid' | 'mysql' | 'postgres')
 
@@ -65,7 +88,7 @@ The host (hostname:port) of the cluster. In the Druid case this must be the brok
 **version** (string)
 
 The explicit version to use for this cluster.
-This does not need to be defined as the version will naturally be determined through introspection.
+Define this to override the automatic version detection.
 
 **timeout** (number)
 
@@ -73,7 +96,7 @@ The timeout to set on the queries in ms. Default: 40000
 
 **sourceListScan** ('disable' | 'auto')
 
-Should the sources of this cluster be automatically scanned and new sources added as data sources. Default: 'disable'
+Should the sources of this cluster be automatically scanned and new sources added as data cubes. Default: 'disable'
 
 **sourceListRefreshOnLoad** (boolean)
 
@@ -124,36 +147,41 @@ The password to use with the provided user.
 
 ## Configuring the DataSources
 
-The top level `dataSources:` key that holds the data sources that will be loaded into Pivot.
-The order of the data sources in the config will define the ordering seen in the UI.
+The top level `dataCubes:` key that holds the data cubes that will be loaded into Pivot.
+The order of the data cubes in the config will define the ordering seen in the UI.
 
 
-### Basic data source properties
+### Basic data cube properties
 
 Described here are only the properties which you might want to change.
 
 **name** (string)
 
-The name of the data source as used internally in Pivot and used in the URLs. This should be a URL safe string.
-Changing this property for a given data source will break any URLs that someone might have generated for that data
-source in the past.
+The name of the data cube as used internally in Pivot and used in the URLs. This should be a URL safe string.
+Changing this property for a given data cube will break any URLs that someone might have generated for that data
+cube in the past.
 
-**engine** (string)
+**clusterName** (string)
 
-The cluster that the dataSource belongs to (or native if this is a file based dataSource)
+The cluster that the data cube belongs to (or `'native'` if this is a file based data cube)
 
 **title** (string)
 
-The user visible name that will be used to describe this data source in the UI. It is always safe to change this.
+The user visible name that will be used to describe this data cube in the UI. It is always safe to change this.
 
 **description** (string)
 
-The description of the data source shown in the homepage.
+The description of the data cube shown in the homepage.
 
-**defaultDuration** (duration string)
+**defaultTimezone** (string - timezone)
+
+The default timezone, expressed as an [Olsen Timezone](https://en.wikipedia.org/wiki/Tz_database),
+that will be selected when the user first opens this cube. Default `Etc/UTC`.
+
+**defaultDuration** (string - duration)
 
 The time period, expressed as an [ISO 8601 Duration](https://en.wikipedia.org/wiki/ISO_8601#Durations),
-that will be shown when the user first opens Pivot. Default `P1D` (1 day).
+that will be shown when the user first opens this cube. Default `P1D` (1 day).
 
 **defaultSortMeasure** (string)
 
@@ -171,8 +199,8 @@ The names of the dimensions (in order) that will appear *pinned* by default on t
 
 ### Attribute Overrides
 
-While Pivot tries to learn as much as it can from your data source from Druid directly.
-It can not (yet) do a perfect job. The `attributeOverrides:` section of the data source is there for you to fix that.
+While Pivot tries to learn as much as it can from your data cube from Druid directly.
+It can not (yet) do a perfect job. The `attributeOverrides:` section of the data cube is there for you to fix that.
 
 **name** (string)
 
@@ -213,7 +241,7 @@ You should add:
 
 To the `attributeOverrides` to tell Pivot that this is numeric.
 
-You can now use `$age` in numeric expressions. For example you could create a dimension with the expression
+You can now use `$age` in numeric expressions. For example you could create a dimension with the formula
 `$age / 2 + 7`.
 
 
@@ -253,10 +281,20 @@ If you mainly care about smaller intervals, you might want to set it to: `['PT1S
 
 Alternatively, if you mainly care about large intervals, you might want to try: `['P1D', 'P1W', 'P1M', 'P3M', 'P1Y']`
 
-**expression** (plywood expression)
+**bucketingStrategy** ('alwaysBucket' | 'neverBucket')
 
-The expression for this dimension. By default it is `$name` where *name* is the name of the dimension.
-You can create derived dimensions by using non-trivial expressions. Here are some common use cases for derived dimensions:
+Specify whether or not the dimension should be bucketed. If unspecified defaults to 'alwaysBucket' for time and numeric dimensions.
+
+**sortStrategy** ('self' | `someMeasureName`)
+
+Specify a specific sort strategy for this dimension in visualizations. If unspecified defaults to best sort strategy based on the visualization.
+
+**formula** (string - plywood expression)
+
+The formula for this dimension. By default it is `$name` where *name* is the name of the dimension.
+You can create derived dimensions by using non-trivial formulas.
+
+Here are some common use cases for derived dimensions:
 
 #### Lookups
 
@@ -265,7 +303,7 @@ If you have a dimension that represents an ID that is a key into some other tabl
 
 ```yaml
       - name: correctValue
-        expression: $lookupKey.lookup('my_awesome_lookup')
+        formula: $lookupKey.lookup('my_awesome_lookup')
 ```
 
 Which would apply the lookup.
@@ -287,7 +325,7 @@ You could apply, for example, the `.extract` function by creating the following 
 
 ```yaml
       - name: resourceVersion
-        expression: $resourceName.extract('(\d+\.\d+\.\d+)')
+        formula: $resourceName.extract('(\d+\.\d+\.\d+)')
 ```
 
 Which would have values:
@@ -303,7 +341,7 @@ Let's say that you are responsible for all accounts in the United States as well
 
 ```yaml
       - name: myAccounts
-        expression: $country == 'United States' or $accountName.in(['Toyota', 'Honda'])
+        formula: $country == 'United States' or $accountName.in(['Toyota', 'Honda'])
 ```
 
 Now my account would represent a custom filter boolean diemension.
@@ -324,7 +362,7 @@ Changing this property will break any URLs that someone might have generated tha
 
 The title for this measure in the UI. Can be anything and is safe to change at any time.
 
-**expression** (plywood expression)
+**formula** (string - plywood expression)
 
 The [Plywood expression](http://plywood.imply.io/expressions) for this dimension. By default it is `$main.sum($name)` where *name* is the name of the measure.
 
@@ -341,7 +379,7 @@ Ratios are generally considered fun.
 ```yaml
       - name: ecpm
         title: eCPM
-        expression: $main.sum($revenue) / $main.sum($impressions) * 1000
+        formula: $main.sum($revenue) / $main.sum($impressions) * 1000
 ```
 
 
@@ -353,14 +391,14 @@ If, for example, your revenue in the US is a very important measure you could ex
 ```yaml
       - name: usa_revenue
         title: USA Revenue
-        expression: $main.filter($country == 'United States').sum($revenue)
+        formula: $main.filter($country == 'United States').sum($revenue)
 ```
 
 It is also common to express a ratio of something filtered vs unfiltered.
 
 ```yaml
       - name: errorRate
-        expression: $main.filter($statusCode == 500).sum($requests) / $main.sum($requests)
+        formula: $main.filter($statusCode == 500).sum($requests) / $main.sum($requests)
 ```
 
 
@@ -392,7 +430,7 @@ Then in the measures simply reference `addedMod1337` like so:
 ```yaml
       - name: addedMod
         title: Added Mod 1337
-        expression: $main.custom('addedMod1337')
+        formula: $main.custom('addedMod1337')
 ```
 
 This functionality can be used to access any custom aggregations that might be loaded via extensions.
@@ -410,7 +448,7 @@ Furthermore right now your users are using pivot with the measure:
 ```yaml
       - name: revenue
         title: Revenue
-        expression: $main.sum($revenue_in_dollars)
+        formula: $main.sum($revenue_in_dollars)
 ```
 
 If your data had a 'clean break' where all events have ether `revenue_in_dollars` or `revenue_in_cents` with no overlap you could use:
@@ -418,7 +456,7 @@ If your data had a 'clean break' where all events have ether `revenue_in_dollars
 ```yaml
       - name: revenue
         title: Revenue
-        expression: $main.sum($revenue_in_dollars) + $main.sum($revenue_in_cents) / 100
+        formula: $main.sum($revenue_in_dollars) + $main.sum($revenue_in_cents) / 100
 ```
 
 If instead there was a period where you were ingesting both metrics then the above solution would double count that interval.
@@ -429,7 +467,7 @@ Logically you should be able leverage the [Filtered aggregations](#filtered-aggr
 ```yaml
       - name: revenue  # DO NOT DO THIS IT WILL NOT WORK WITH DRUID < 0.9.2
         title: Revenue
-        expression: >
+        formula: >
           $main.filter(__time < '2016-04-04T00:00:00Z').sum($revenue_in_dollars) +
           $main.filter('2016-04-04T00:00:00Z' <= __time).sum($revenue_in_cents) / 100
 ```
@@ -439,7 +477,7 @@ But the above will not work because, as of this writing, [Druid can not filter o
 Instead you can leverage [Custom aggregations](#custom-aggregations) and the `javascript` aggregation to achieve essentially the same thing:
 
 ```yaml
-    # Add this to the data source options
+    # Add this to the data cube options
     options:
       customAggregations:
         revenueSplice:
@@ -456,7 +494,7 @@ Then in the measure definitions:
 ```yaml
       - name: revenue
         title: Revenue
-        expression: $main.custom('revenueSplice')
+        formula: $main.custom('revenueSplice')
 ```
 
 Note that whichever method you chose you should not change the `name` attribute of your original measure as it will preserve the function of any bookmarks.
@@ -483,7 +521,7 @@ Can customize the header background color and logo icon by supplying a color str
 
 ### External links
 
-Pivot supports defining external view links with access to `dataSource`, `filter`, `splits`, and `timezone` objects at link generation time.
+Pivot supports defining external view links with access to `dataCube`, `filter`, `splits`, and `timezone` objects at link generation time.
 This is done by defining a function body in the configuration file.
 
 For example:
@@ -517,5 +555,5 @@ For example:
 
 These timezones will appear in the dropdown instead of the default, which are
 
-`['America/Juneau', 'America/Los_Angeles', 'America/Yellowknife', 'America/Phoenix', 'America/Denver', 'America/Mexico_City', 'America/Chicago', 'America/New_York', 'America/Argentina/Buenos_Aires', 'Etc/UTC', 
+`['America/Juneau', 'America/Los_Angeles', 'America/Yellowknife', 'America/Phoenix', 'America/Denver', 'America/Mexico_City', 'America/Chicago', 'America/New_York', 'America/Argentina/Buenos_Aires', 'Etc/UTC',
 'Asia/Jerusalem', 'Europe/Paris', 'Asia/Kathmandu', 'Asia/Hong_Kong', 'Asia/Seoul', 'Pacific/Guam']`

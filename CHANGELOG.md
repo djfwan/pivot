@@ -2,6 +2,62 @@
 
 For updates follow [@implydata](https://twitter.com/implydata) on Twitter.
 
+## 0.9.28
+
+- Added basic request tracking ability
+- Changed default request log format and made it configurable
+
+## 0.9.27
+
+- Added gear icon links to settings
+
+## 0.9.26
+
+- DataCube `subsetFilter` -> `subsetFormula`
+- Settings fixes
+
+## 0.9.25
+
+- Settings progress
+
+## 0.9.24
+
+- Added trustProxy to server options
+- Removed 'when-x-forwarded-proto'
+
+## 0.9.23
+
+- Adding strictTransportSecurity to server options
+- Changing ServerSettings to follow new defaults pattern
+
+## 0.9.22
+
+- Moved default user
+
+## 0.9.21
+
+- Renamed `DataSource` to `DataCube`
+- Changed Dimension and Measure `expression` to `formula`
+
+## 0.9.20
+
+- Fixes for sorting on dimension when there are multiple splits
+
+## 0.9.19
+
+- Fixes for data source transitions
+
+## 0.9.18
+
+- `DataSource#engine` renamed to `DataSource#clusterName`
+- Cleaned up integration tests
+
+## 0.9.17
+
+- Added better small screen support
+- Fixed dragging polyfill (on touch devices)
+- Added file notices
+
 ## 0.9.16
 
 - Selected filtered items appear at top of menu

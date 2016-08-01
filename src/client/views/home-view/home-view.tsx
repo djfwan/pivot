@@ -1,7 +1,23 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./home-view.css');
 
 import * as React from 'react';
-import { Stage, DataSource, User, Customization } from '../../../common/models/index';
+import { Stage, DataCube, User, Customization } from '../../../common/models/index';
 import { STRINGS } from '../../config/constants';
 import { Fn } from '../../../common/utils/general/general';
 
@@ -10,7 +26,7 @@ import { SvgIcon } from '../../components/svg-icon/svg-icon';
 import { ItemCard } from './item-card/item-card';
 
 export interface HomeViewProps extends React.Props<any> {
-  dataSources?: DataSource[];
+  dataCubes?: DataCube[];
   user?: User;
   onNavClick?: Fn;
   onOpenAbout: Fn;
@@ -22,11 +38,24 @@ export interface HomeViewState {
 
 export class HomeView extends React.Component< HomeViewProps, HomeViewState> {
 
-  goToCube(cube: DataSource) {
+  goToCube(cube: DataCube) {
     window.location.hash = '#' + cube.name;
   }
 
-  renderCube(cube: DataSource): JSX.Element {
+  goToSettings() {
+    window.location.hash = '#settings';
+  }
+
+  renderSettingsIcon() {
+    const { user } = this.props;
+    if (!user || !user.allow['settings']) return null;
+
+    return <div className="icon-button" onClick={this.goToSettings.bind(this)}>
+      <SvgIcon svg={require('../../icons/full-settings.svg')}/>
+    </div>;
+  }
+
+  renderCube(cube: DataCube): JSX.Element {
     return <ItemCard
       key={cube.name}
       title={cube.title}
@@ -36,9 +65,9 @@ export class HomeView extends React.Component< HomeViewProps, HomeViewState> {
     />;
   }
 
-  renderCubes(cubes: DataSource[]): JSX.Element {
+  renderCubes(cubes: DataCube[]): JSX.Element {
     return <div className="datacubes">
-      <div className="title">{STRINGS.dataSources}</div>
+      <div className="title">{STRINGS.dataCubes}</div>
       <div className="cubes-container">
         {cubes.map(this.renderCube, this)}
 
@@ -52,7 +81,7 @@ export class HomeView extends React.Component< HomeViewProps, HomeViewState> {
   }
 
   render() {
-    const { user, dataSources, onNavClick, onOpenAbout, customization } = this.props;
+    const { user, dataCubes, onNavClick, onOpenAbout, customization } = this.props;
 
     return <div className="home-view">
       <HomeHeaderBar
@@ -64,10 +93,11 @@ export class HomeView extends React.Component< HomeViewProps, HomeViewState> {
         <button className="text-button" onClick={onOpenAbout}>
           {STRINGS.infoAndFeedback}
         </button>
+        {this.renderSettingsIcon()}
       </HomeHeaderBar>
 
       <div className="container">
-        {this.renderCubes(dataSources)}
+        {this.renderCubes(dataCubes)}
       </div>
 
     </div>;

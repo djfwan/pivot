@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./base-visualization.css');
 
 import * as React from 'react';
@@ -57,7 +73,7 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
   }
 
   protected makeQuery(essence: Essence): Expression {
-    var { splits, colors, dataSource } = essence;
+    var { splits, colors, dataCube } = essence;
     var measures = essence.getEffectiveMeasures();
 
     var $main = $('main');
@@ -71,7 +87,7 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
 
     function makeSubQuery(i: number): Expression {
       var split = splits.get(i);
-      var splitDimension = dataSource.getDimensionByExpression(split.expression);
+      var splitDimension = dataCube.getDimensionByExpression(split.expression);
       var { sortAction, limitAction } = split;
       if (!sortAction) {
         throw new Error('something went wrong during query generation');
@@ -123,7 +139,7 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
     let query = this.makeQuery(essence);
 
     this.precalculate(this.props, { loading: true });
-    essence.dataSource.executor(query, { timezone: essence.timezone })
+    essence.dataCube.executor(query, { timezone: essence.timezone })
       .then(
         (dataset: Dataset) => {
           if (!this._isMounted) return;
@@ -166,7 +182,7 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
     var { essence } = this.props;
     var nextEssence = nextProps.essence;
     if (
-      nextEssence.differentDataSource(essence) ||
+      nextEssence.differentDataCube(essence) ||
       nextEssence.differentEffectiveFilter(essence, this.id) ||
       nextEssence.differentEffectiveSplits(essence) ||
       nextEssence.differentColors(essence) ||

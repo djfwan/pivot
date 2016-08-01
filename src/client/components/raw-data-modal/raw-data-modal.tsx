@@ -1,10 +1,26 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./raw-data-modal.css');
 
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { List } from 'immutable';
 import { $, Dataset, PlywoodValue, Datum, Set, AttributeInfo, isDate } from 'plywood';
-import { Essence, Stage, DataSource } from '../../../common/models/index';
+import { Essence, Stage, DataCube } from '../../../common/models/index';
 
 import { Fn, makeTitle, arraySum } from '../../../common/utils/general/general';
 import { download, makeFileName } from '../../utils/download/download';
@@ -89,11 +105,11 @@ export class RawDataModal extends React.Component<RawDataModalProps, RawDataModa
   }
 
   fetchData(essence: Essence): void {
-    const { dataSource } = essence;
+    const { dataCube } = essence;
     const $main = $('main');
     const query = $main.filter(essence.getEffectiveFilter().toExpression()).limit(LIMIT);
     this.setState({ loading: true });
-    dataSource.executor(query, { timezone: essence.timezone })
+    dataCube.executor(query, { timezone: essence.timezone })
       .then(
         (dataset: Dataset) => {
           if (!this.mounted) return;
@@ -127,17 +143,17 @@ export class RawDataModal extends React.Component<RawDataModalProps, RawDataModa
 
   getStringifiedFilters(): List<string> {
     const { essence } = this.props;
-    const { dataSource } = essence;
+    const { dataCube } = essence;
     return essence.getEffectiveFilter().clauses.map((clause, i) => {
-      const dimension = dataSource.getDimensionByExpression(clause.expression);
+      const dimension = dataCube.getDimensionByExpression(clause.expression);
       if (!dimension) return null;
       var evaluatedClause = dimension.kind === 'time' ? essence.evaluateClause(clause) : clause;
       return formatFilterClause(dimension, evaluatedClause, essence.timezone);
     }).toList();
   }
 
-  getSortedAttributes(dataSource: DataSource): AttributeInfo[] {
-    const timeAttributeName = dataSource.timeAttribute ? dataSource.timeAttribute.name : null;
+  getSortedAttributes(dataCube: DataCube): AttributeInfo[] {
+    const timeAttributeName = dataCube.timeAttribute ? dataCube.timeAttribute.name : null;
 
     var attributeRank = (attribute: AttributeInfo) => {
       const name = attribute.name;
@@ -150,7 +166,7 @@ export class RawDataModal extends React.Component<RawDataModalProps, RawDataModa
       }
     };
 
-    return dataSource.attributes.sort((a1, a2) => {
+    return dataCube.attributes.sort((a1, a2) => {
       const score1 = attributeRank(a1);
       const score2 = attributeRank(a2);
       if (score1 === score2) {
@@ -173,9 +189,9 @@ export class RawDataModal extends React.Component<RawDataModalProps, RawDataModa
     const { essence } = this.props;
     const { dataset } = this.state;
     if (!dataset) return null;
-    const { dataSource } = essence;
+    const { dataCube } = essence;
 
-    const attributes = this.getSortedAttributes(dataSource);
+    const attributes = this.getSortedAttributes(dataCube);
 
     return attributes.map((attribute, i) => {
       const name = attribute.name;
@@ -203,14 +219,14 @@ export class RawDataModal extends React.Component<RawDataModalProps, RawDataModa
     const { essence } = this.props;
     const { dataset, scrollLeft, stage } = this.state;
     if (!dataset) return null;
-    const { dataSource } = essence;
+    const { dataCube } = essence;
 
     const rawData = dataset.data;
 
     const [ firstRowToShow, lastRowToShow ] = this.getVisibleIndices(rawData.length, stage.height);
 
     const rows = rawData.slice(firstRowToShow, lastRowToShow);
-    var attributes = this.getSortedAttributes(dataSource);
+    var attributes = this.getSortedAttributes(dataCube);
     var attributeWidths = attributes.map(getColumnWidth);
 
     const { startIndex, shownColumns } = getVisibleSegments(attributeWidths, scrollLeft, stage.width);
@@ -248,15 +264,15 @@ export class RawDataModal extends React.Component<RawDataModalProps, RawDataModa
   render() {
     const { essence, onClose } = this.props;
     const { dataset, loading, error } = this.state;
-    const { dataSource } = essence;
+    const { dataCube } = essence;
 
     const title = `${makeTitle(STRINGS.segment)} ${STRINGS.rawData}`;
 
-    const filtersString = essence.getEffectiveFilter().getFileString(dataSource.timeAttribute);
+    const filtersString = essence.getEffectiveFilter().getFileString(dataCube.timeAttribute);
 
     const scrollerLayout: ScrollerLayout = {
       // Inner dimensions
-      bodyWidth: arraySum(dataSource.attributes.map(getColumnWidth)),
+      bodyWidth: arraySum(dataCube.attributes.map(getColumnWidth)),
       bodyHeight: (dataset ? dataset.data.length : 0) * ROW_HEIGHT,
 
       // Gutters
@@ -287,7 +303,7 @@ export class RawDataModal extends React.Component<RawDataModalProps, RawDataModa
           <Button
             type="secondary"
             className="download"
-            onClick={download.bind(this, dataset, makeFileName(dataSource.name, filtersString, 'raw'), 'csv')}
+            onClick={download.bind(this, dataset, makeFileName(dataCube.name, filtersString, 'raw'), 'csv')}
             title={STRINGS.download}
             disabled={Boolean(loading || error)}
           />

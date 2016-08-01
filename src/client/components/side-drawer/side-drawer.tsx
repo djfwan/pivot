@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./side-drawer.css');
 
 import * as React from 'react';
@@ -5,20 +21,19 @@ import * as ReactDOM from 'react-dom';
 import { Fn } from '../../../common/utils/general/general';
 import { STRINGS } from '../../config/constants';
 import { isInside, escapeKey, classNames } from '../../utils/dom/dom';
-import { DataSource, Customization } from '../../../common/models/index';
+import { DataCube, Customization } from '../../../common/models/index';
 import { NavLogo } from '../nav-logo/nav-logo';
 import { SvgIcon } from '../svg-icon/svg-icon';
 import { NavList } from '../nav-list/nav-list';
 
 export interface SideDrawerProps extends React.Props<any> {
-  selectedDataSource: DataSource;
-  dataSources: DataSource[];
+  selectedDataCube: DataCube;
+  dataCubes: DataCube[];
   onOpenAbout: Fn;
   onClose: Fn;
   customization?: Customization;
-  isHome?: boolean;
-  isCube?: boolean;
-  isLink?: boolean;
+  itemHrefFn?: (oldDataCube?: DataCube, newDataCube?: DataCube) => string;
+  viewType: 'home' | 'cube' | 'link' | 'settings';
 }
 
 export interface SideDrawerState {
@@ -60,40 +75,58 @@ export class SideDrawer extends React.Component<SideDrawerProps, SideDrawerState
     window.location.hash = '#';
   }
 
-  renderOverviewLink() {
-    const { isHome, isCube, isLink } = this.props;
+  onOpenSettings() {
+    window.location.hash = '#settings';
+  }
 
-    if (!isCube && !isLink && !isHome) return null;
+  renderOverviewLink() {
+    const { viewType } = this.props;
 
     return <div className="home-container">
-      <div className={classNames('home-link', {selected: isHome})} onClick={this.onHomeClick.bind(this)}>
+      <div
+        className={classNames('home-link', {selected: viewType === 'home'})}
+        onClick={this.onHomeClick.bind(this)}
+      >
         <SvgIcon svg={require('../../icons/home.svg')}/>
-        <span>{isCube || isHome ? 'Home' : 'Overview'}</span>
+        <span>{viewType === 'link' ? 'Overview' : 'Home'}</span>
       </div>
     </div>;
   }
 
   render() {
-    var { onClose, selectedDataSource, dataSources, onOpenAbout, customization } = this.props;
+    var { onClose, selectedDataCube, dataCubes, onOpenAbout, customization, itemHrefFn } = this.props;
 
-    var navLinks = dataSources.map(ds => {
+    var navLinks = dataCubes.map(ds => {
+      var href = (itemHrefFn && itemHrefFn(selectedDataCube, ds)) || ('#' + ds.name);
+
       return {
         name: ds.name,
         title: ds.title,
         tooltip: ds.description,
-        href: '#' + ds.name
+        href: href
       };
     });
 
-    var infoAndFeedback = [{
-      name: 'info',
-      title: STRINGS.infoAndFeedback,
-      tooltip: 'Learn more about Pivot',
-      onClick: () => {
-        onClose();
-        onOpenAbout();
+    var infoAndFeedback = [
+      {
+        name: 'settings',
+        title: STRINGS.settings,
+        tooltip: 'Settings',
+        onClick: () => {
+          onClose();
+          this.onOpenSettings();
+        }
+      },
+      {
+        name: 'info',
+        title: STRINGS.infoAndFeedback,
+        tooltip: 'Learn more about Pivot',
+        onClick: () => {
+          onClose();
+          onOpenAbout();
+        }
       }
-    }];
+    ];
 
     var customLogoSvg: string = null;
     if (customization && customization.customLogoSvg) {
@@ -104,13 +137,12 @@ export class SideDrawer extends React.Component<SideDrawerProps, SideDrawerState
       <NavLogo customLogoSvg={customLogoSvg} onClick={onClose}/>
       {this.renderOverviewLink()}
       <NavList
-        selected={selectedDataSource ? selectedDataSource.name : null}
+        selected={selectedDataCube ? selectedDataCube.name : null}
         navLinks={navLinks}
         iconSvg={require('../../icons/full-cube.svg')}
       />
-      <NavList
-        navLinks={infoAndFeedback}
-      />
+      <NavList navLinks={infoAndFeedback}/>
+
     </div>;
   }
 }

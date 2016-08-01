@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as React from 'react';
@@ -6,7 +22,7 @@ import { mockRequireEnsure, mockReactComponent } from '../../utils/test-utils/in
 
 import * as TestUtils from 'react-addons-test-utils';
 
-import { DataSourceMock } from '../../../common/models/mocks';
+import { DataCubeMock } from '../../../common/models/mocks';
 
 import { $, Expression } from 'plywood';
 
@@ -40,7 +56,7 @@ describe('CubeView', () => {
     var renderedComponent = TestUtils.renderIntoDocument(
       <CubeView
         hash={null}
-        dataSource={DataSourceMock.wiki()}
+        dataCube={DataCubeMock.wiki()}
         updateViewHash={updateViewHash}
       />
     );
@@ -58,7 +74,7 @@ describe('CubeView', () => {
     var initialCubeView = TestUtils.renderIntoDocument(
       <CubeView
         hash={null}
-        dataSource={DataSourceMock.wiki()}
+        dataCube={DataCubeMock.wiki()}
         updateViewHash={updateViewHash}
       />
     );
@@ -71,7 +87,7 @@ describe('CubeView', () => {
     var wikiCubeView = TestUtils.renderIntoDocument(
       <CubeView
         hash={null}
-        dataSource={DataSourceMock.wiki()}
+        dataCube={DataCubeMock.wiki()}
         updateViewHash={updateViewHash}
       />
     );
@@ -85,7 +101,7 @@ describe('CubeView', () => {
     var wikiCubeView2 = TestUtils.renderIntoDocument(
       <CubeView
         hash={null}
-        dataSource={DataSourceMock.wiki()}
+        dataCube={DataCubeMock.wiki()}
         updateViewHash={updateViewHash}
       />
     );

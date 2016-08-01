@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./table.css');
 
 import { List } from 'immutable';
@@ -6,7 +22,7 @@ import * as ReactDOM from 'react-dom';
 import { $, ply, r, Expression, RefExpression, Executor, Dataset, Datum, PseudoDatum, TimeRange, Set, SortAction, NumberRange } from 'plywood';
 import { formatterFromData, formatNumberRange, Formatter } from '../../../common/utils/formatter/formatter';
 import { Stage, Filter, FilterClause, Essence, VisStrategy, Splits, SplitCombine, Dimension,
-  Measure, Colors, DataSource, VisualizationProps, DatasetLoad } from '../../../common/models/index';
+  Measure, Colors, DataCube, VisualizationProps, DatasetLoad } from '../../../common/models/index';
 import { TABLE_MANIFEST } from '../../../common/manifests/table/table';
 import { getXFromEvent, getYFromEvent, classNames } from '../../utils/dom/dom';
 import { SvgIcon } from '../../components/svg-icon/svg-icon';
@@ -33,11 +49,11 @@ function formatSegment(value: any): string {
   return String(value);
 }
 
-function getFilterFromDatum(splits: Splits, flatDatum: PseudoDatum, dataSource: DataSource): Filter {
+function getFilterFromDatum(splits: Splits, flatDatum: PseudoDatum, dataCube: DataCube): Filter {
   if (flatDatum['__nest'] === 0) return null;
   var segments: any[] = [];
   while (flatDatum['__nest'] > 0) {
-    segments.unshift(flatDatum[splits.get(flatDatum['__nest'] - 1).getDimension(dataSource.dimensions).name]);
+    segments.unshift(flatDatum[splits.get(flatDatum['__nest'] - 1).getDimension(dataCube.dimensions).name]);
     flatDatum = flatDatum['__parent'];
   }
   return new Filter(List(segments.map((segment, i) => {
@@ -102,22 +118,20 @@ export class Table extends BaseVisualization<TableState> {
 
   onClick(x: number, y: number) {
     var { clicker, essence } = this.props;
-    var { splits, dataSource } = essence;
+    var { splits, dataCube } = essence;
     var pos = this.calculateMousePosition(x, y);
 
-    var splitDimension = splits.get(0).getDimension(dataSource.dimensions);
-
     if (pos.what === 'corner' || pos.what === 'header') {
-      var sortExpression = $(pos.what === 'corner' ? splitDimension.name : pos.measure.name);
+      var sortExpression = $(pos.what === 'corner' ? SplitCombine.SORT_ON_DIMENSION_PLACEHOLDER : pos.measure.name);
       var commonSort = essence.getCommonSort();
       var myDescending = (commonSort && commonSort.expression.equals(sortExpression) && commonSort.direction === SortAction.DESCENDING);
-      clicker.changeSplits(essence.splits.changeSortAction(new SortAction({
+      clicker.changeSplits(essence.splits.changeSortActionFromNormalized(new SortAction({
         expression: sortExpression,
         direction: myDescending ? SortAction.ASCENDING : SortAction.DESCENDING
-      })), VisStrategy.KeepAlways);
+      }), essence.dataCube.dimensions), VisStrategy.KeepAlways);
 
     } else if (pos.what === 'row') {
-      var rowHighlight = getFilterFromDatum(essence.splits, pos.row, dataSource);
+      var rowHighlight = getFilterFromDatum(essence.splits, pos.row, dataCube);
 
       if (!rowHighlight) return;
 
@@ -281,14 +295,9 @@ export class Table extends BaseVisualization<TableState> {
 
   renderCornerSortArrow(essence: Essence): JSX.Element {
     var commonSort = essence.getCommonSort();
+    if (!commonSort) return null;
 
-    if (!commonSort) {
-      return null;
-    }
-
-    var { splits, dataSource } = essence;
-    var splitDimension = splits.get(0).getDimension(dataSource.dimensions);
-    if ((commonSort.expression as RefExpression).name === splitDimension.name) {
+    if (commonSort.refName() === SplitCombine.SORT_ON_DIMENSION_PLACEHOLDER) {
       return <SvgIcon
         svg={require('../../icons/sort-arrow.svg')}
         className={'sort-arrow ' + commonSort.direction}
@@ -314,9 +323,9 @@ export class Table extends BaseVisualization<TableState> {
   renderInternals() {
     var { clicker, essence, stage, openRawDataModal } = this.props;
     var { flatData, scrollTop, hoverMeasure, hoverRow } = this.state;
-    var { splits, dataSource } = essence;
+    var { splits, dataCube } = essence;
 
-    var segmentTitle = splits.getTitle(essence.dataSource.dimensions);
+    var segmentTitle = splits.getTitle(essence.dataCube.dimensions);
 
     var cornerSortArrow: JSX.Element = this.renderCornerSortArrow(essence);
     var idealWidth = this.getIdealMeasureWidth(essence);
@@ -350,7 +359,7 @@ export class Table extends BaseVisualization<TableState> {
         var nest = d['__nest'];
 
         var split = nest > 0 ? splits.get(nest - 1) : null;
-        var dimension = split ? split.getDimension(dataSource.dimensions) : null;
+        var dimension = split ? split.getDimension(dataCube.dimensions) : null;
 
         var segmentValue = dimension ? d[dimension.name] : '';
         var segmentName = nest ? formatSegment(segmentValue) : 'Total';
@@ -361,7 +370,7 @@ export class Table extends BaseVisualization<TableState> {
         var selected = false;
         var selectedClass = '';
         if (highlightDelta) {
-          selected = highlightDelta.equals(getFilterFromDatum(splits, d, dataSource));
+          selected = highlightDelta.equals(getFilterFromDatum(splits, d, dataCube));
           selectedClass = selected ? 'selected' : 'not-selected';
         }
 
@@ -384,7 +393,7 @@ export class Table extends BaseVisualization<TableState> {
             left
           };
 
-          var dimension = essence.dataSource.getDimensionByExpression(splits.splitCombines.get(nest - 1).expression);
+          var dimension = essence.dataCube.getDimensionByExpression(splits.splitCombines.get(nest - 1).expression);
 
           highlighter = <div className='highlighter' key='highlight' style={highlighterStyle}></div>;
 

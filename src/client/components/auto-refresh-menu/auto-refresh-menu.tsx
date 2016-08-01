@@ -1,9 +1,25 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./auto-refresh-menu.css');
 
 import * as React from 'react';
-import { Duration } from 'chronoshift';
+import { Duration, Timezone } from 'chronoshift';
 import { Fn } from '../../../common/utils/general/general';
-import { Stage, DataSource } from '../../../common/models/index';
+import { Stage, DataCube } from '../../../common/models/index';
 import { STRINGS } from '../../config/constants';
 import { BubbleMenu } from '../bubble-menu/bubble-menu';
 import { Dropdown, DropdownProps } from '../dropdown/dropdown';
@@ -34,7 +50,8 @@ export interface AutoRefreshMenuProps extends React.Props<any> {
   autoRefreshRate: Duration;
   setAutoRefreshRate: Fn;
   refreshMaxTime: Fn;
-  dataSource: DataSource;
+  dataCube: DataCube;
+  timezone: Timezone;
 }
 
 export interface AutoRefreshMenuState {
@@ -55,17 +72,19 @@ export class AutoRefreshMenu extends React.Component<AutoRefreshMenuProps, AutoR
   renderRefreshIntervalDropdown() {
     const { autoRefreshRate, setAutoRefreshRate } = this.props;
 
-    return React.createElement(Dropdown, {
-      label: STRINGS.autoUpdate,
-      items: REFRESH_DURATIONS,
-      selectedItem: autoRefreshRate,
-      renderItem: (d) => AUTO_REFRESH_LABELS[String(d)] || `Custom ${d}`,
-      onSelect: setAutoRefreshRate
-    } as DropdownProps<Duration>);
+    const DurationDropdown = Dropdown.specialize<Duration>();
+
+    return <DurationDropdown
+      label={STRINGS.autoUpdate}
+      items={REFRESH_DURATIONS}
+      selectedItem={autoRefreshRate}
+      renderItem={(d) => AUTO_REFRESH_LABELS[String(d)] || `Custom ${d}`}
+      onSelect={setAutoRefreshRate}
+    />;
   }
 
   render() {
-    var { openOn, onClose, dataSource } = this.props;
+    var { openOn, onClose, dataCube, timezone } = this.props;
 
     var stage = Stage.fromSize(240, 200);
     return <BubbleMenu
@@ -77,7 +96,7 @@ export class AutoRefreshMenu extends React.Component<AutoRefreshMenuProps, AutoR
     >
       {this.renderRefreshIntervalDropdown()}
       <button className="update-now-button" onClick={this.onRefreshNowClick.bind(this)}>Update now</button>
-      <div className="update-info">{dataSource.updatedText()}</div>
+      <div className="update-info">{dataCube.updatedText(timezone)}</div>
     </BubbleMenu>;
   }
 }

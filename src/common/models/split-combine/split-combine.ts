@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { List } from 'immutable';
 import { Class, Instance, isInstanceOf } from 'immutable-class';
 import { Timezone, Duration, day, hour } from 'chronoshift';
@@ -25,6 +41,8 @@ export interface SplitCombineContext {
 
 var check: Class<SplitCombineValue, SplitCombineJS>;
 export class SplitCombine implements Instance<SplitCombineValue, SplitCombineJS> {
+  static SORT_ON_DIMENSION_PLACEHOLDER = '__PIVOT_SORT_ON_DIMENSIONS__';
+
   static isSplitCombine(candidate: any): candidate is SplitCombine {
     return isInstanceOf(candidate, SplitCombine);
   }
@@ -132,6 +150,16 @@ export class SplitCombine implements Instance<SplitCombineValue, SplitCombineJS>
     return this.toSplitExpression().toString();
   }
 
+  public getNormalizedSortAction(dimensions: List<Dimension>): SortAction {
+    const { sortAction } = this;
+    var dimension = this.getDimension(dimensions);
+    if (!sortAction) return null;
+    if (sortAction.refName() === dimension.name) {
+      return sortAction.changeExpression($(SplitCombine.SORT_ON_DIMENSION_PLACEHOLDER)) as SortAction;
+    }
+    return sortAction;
+  }
+
   public changeBucketAction(bucketAction: Action): SplitCombine {
     var value = this.valueOf();
     value.bucketAction = bucketAction;
@@ -142,6 +170,15 @@ export class SplitCombine implements Instance<SplitCombineValue, SplitCombineJS>
     var value = this.valueOf();
     value.sortAction = sortAction;
     return new SplitCombine(value);
+  }
+
+  public changeSortActionFromNormalized(sortAction: SortAction, dimensions: List<Dimension>): SplitCombine {
+    if (sortAction.refName() === SplitCombine.SORT_ON_DIMENSION_PLACEHOLDER) {
+      var dimension = Dimension.getDimensionByExpression(dimensions, this.expression);
+      if (!dimension) throw new Error('can not find dimension for split');
+      sortAction = sortAction.changeExpression($(dimension.name)) as SortAction;
+    }
+    return this.changeSortAction(sortAction);
   }
 
   public changeLimitAction(limitAction: LimitAction): SplitCombine {

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 @import '../../imports';
 
 .simple-table {
@@ -6,6 +22,8 @@
 
   .scroller {
     height: 100%;
+    cursor: auto;
+
 
     .column-headers {
       font-size: 12px;
@@ -45,6 +63,10 @@
         display: inline-block;
       }
 
+      &.hover {
+        background: $hover;
+      }
+
       .cell {
         @include ellipsis;
         padding: 14px 10px 5px 0;
@@ -53,7 +75,7 @@
           padding-left: 34px;
         }
 
-        .icon {
+        .svg-icon {
           position: absolute;
           top: 10px;
           left: 6px;
@@ -67,17 +89,42 @@
       }
 
       &.action {
-        padding: 10px;
+        text-align: center;
+        padding-top: 10px;
 
-        .svg-icon {
+        .icon {
           width: 19px;
           height: 19px;
 
-          path {
-            fill: $brand;
+          .svg-icon {
+            width: 100%;
+            height: 100%;
+
+            path {
+              fill: $brand;
+            }
+          }
+
+          &.hover {
+            &::after {
+              content: '';
+              position: absolute;
+              top: -6px;
+              left: 0;
+              width: 30px;
+              height: 30px;
+              border-radius: 30px;
+              background: rgba($brand, 0.18);
+            }
           }
         }
       }
+    }
+  }
+
+  &.clickable {
+    .scroller {
+      cursor: pointer;
     }
   }
 }

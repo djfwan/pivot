@@ -1,10 +1,26 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./dropdown.css');
 
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { SvgIcon } from '../svg-icon/svg-icon';
 import { $, Expression, Executor, Dataset } from 'plywood';
-import { Stage, Essence, DataSource, Filter, Dimension, Measure } from '../../../common/models/index';
+import { Stage, Essence, DataCube, Filter, Dimension, Measure } from '../../../common/models/index';
 import { isInside, escapeKey, classNames } from '../../utils/dom/dom';
 
 function simpleEqual(item1: any, item2: any): boolean {
@@ -15,6 +31,7 @@ export interface DropdownProps<T> {
   label?: string;
   items: T[];
   className?: string;
+  menuClassName?: string;
   selectedItem?: T;
   equal?: (item1: T, item2: T) => boolean;
   renderItem?: (item: T) => (string | JSX.Element);
@@ -29,6 +46,13 @@ export interface DropdownState {
 }
 
 export class Dropdown<T> extends React.Component<DropdownProps<T>, DropdownState> {
+
+  // Allows usage in TSX :
+  // const MyDropdown = Dropdown.specialize<MyItemClass>();
+  // then : <MyDropdown ... />
+  static specialize<U>() {
+    return Dropdown as { new (): Dropdown<U>; };
+  }
 
   constructor() {
     super();
@@ -75,7 +99,7 @@ export class Dropdown<T> extends React.Component<DropdownProps<T>, DropdownState
   }
 
   renderMenu() {
-    var { items, renderItem, keyItem, selectedItem, equal, onSelect, className } = this.props;
+    var { items, renderItem, keyItem, selectedItem, equal, onSelect, menuClassName } = this.props;
     if (!items || !items.length) return null;
     if (!renderItem) renderItem = String;
     if (!keyItem) keyItem = renderItem as (item: T) => string;
@@ -90,13 +114,13 @@ export class Dropdown<T> extends React.Component<DropdownProps<T>, DropdownState
       </div>;
     });
 
-    return <div className={classNames('dropdown-menu', className)}>
+    return <div className={classNames('dropdown-menu', menuClassName)}>
       {itemElements}
     </div>;
   }
 
   render() {
-    var { label, renderItem, selectedItem, direction, renderSelectedItem } = this.props;
+    var { label, renderItem, selectedItem, direction, renderSelectedItem, className } = this.props;
     var { open } = this.state;
     if (!renderItem) renderItem = String;
     if (!direction) direction = 'down';
@@ -107,7 +131,7 @@ export class Dropdown<T> extends React.Component<DropdownProps<T>, DropdownState
       labelElement = <div className="dropdown-label">{label}</div>;
     }
 
-    return <div className={classNames('dropdown', direction)} onClick={this.onClick.bind(this)}>
+    return <div className={classNames('dropdown', direction, className)} onClick={this.onClick.bind(this)}>
       {labelElement}
       <div className={classNames('selected-item', { active : open })}>{renderSelectedItem(selectedItem)}
         <SvgIcon className="caret-icon" svg={require('../../icons/dropdown-caret.svg')}/>

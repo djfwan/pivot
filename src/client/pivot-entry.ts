@@ -1,9 +1,25 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 require('./pivot-entry.css');
 
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { addErrorMonitor } from './utils/error-monitor/error-monitor';
-import { DataSource, AppSettingsJS } from '../common/models/index';
+import { DataCube, AppSettingsJS } from '../common/models/index';
 
 import { Loader } from './components/loader/loader';
 
@@ -22,15 +38,15 @@ interface Config {
   version: string;
   user: any;
   appSettings: AppSettingsJS;
-  readOnly: boolean;
 }
 
 var config: Config = (window as any)['__CONFIG__'];
-if (!config || !config.version || !config.appSettings || !config.appSettings.dataSources) {
+if (!config || !config.version || !config.appSettings || !config.appSettings.dataCubes) {
   throw new Error('config not found');
 }
 
-if (config.appSettings.dataSources.length) {
+let view = window.location.hash.split(/\//)[0];
+if (config.appSettings.dataCubes.length || view === '#settings') {
   var version = config.version;
 
   require.ensure([
@@ -49,8 +65,8 @@ if (config.appSettings.dataSources.length) {
 
     var appSettings = AppSettings.fromJS(config.appSettings, {
       visualizations: MANIFESTS,
-      executorFactory: (dataSource: DataSource) => {
-        return queryUrlExecutorFactory(dataSource.name, 'plywood', version);
+      executorFactory: (dataCube: DataCube) => {
+        return queryUrlExecutorFactory(dataCube.name, 'plywood', version);
       }
     });
 
@@ -66,8 +82,7 @@ if (config.appSettings.dataSources.length) {
         {
           version,
           user: config.user,
-          appSettings,
-          readOnly: config.readOnly
+          appSettings
         }
       ),
       container
@@ -76,23 +91,21 @@ if (config.appSettings.dataSources.length) {
 
 } else {
   require.ensure([
-    './components/no-data-sources-application/no-data-sources-application'
+    './components/no-data-cubes-application/no-data-cubes-application'
   ], (require) => {
-    var NoDataSourcesApplication = require('./components/no-data-sources-application/no-data-sources-application').NoDataSourcesApplication;
+    var NoDataCubesApplication = require('./components/no-data-cubes-application/no-data-cubes-application').NoDataCubesApplication;
 
     ReactDOM.render(
-      React.createElement(NoDataSourcesApplication, {}),
+      React.createElement(NoDataCubesApplication, {}),
       container
     );
-  }, 'no-data-sources');
+  }, 'no-data-cubes');
 }
 
 
-// Polyfill
-// from https://github.com/reppners/ios-html5-drag-drop-shim/tree/effectAllowed_dropEffect
-// /polyfill/mobile-drag-and-drop-polyfill/mobile-drag-and-drop-polyfill.js
+// Polyfill =====================================
 
-// From ../../assets/polyfill/ios-drag-drop.js
+// From ../../assets/polyfill/drag-drop-polyfill.js
 var div = document.createElement('div');
 var dragDiv = 'draggable' in div;
 var evts = 'ondragstart' in div && 'ondrop' in div;
@@ -100,7 +113,12 @@ var evts = 'ondragstart' in div && 'ondrop' in div;
 var needsPatch = !(dragDiv || evts) || /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
 
 if (needsPatch) {
-  require.ensure(['../../lib/polyfill/ios-drag-drop.js'], (require) => {
-    require('../../lib/polyfill/ios-drag-drop.js');
+  require.ensure([
+    '../../lib/polyfill/drag-drop-polyfill.min.js',
+    '../../lib/polyfill/drag-drop-polyfill.css'
+  ], (require) => {
+    var DragDropPolyfill = require('../../lib/polyfill/drag-drop-polyfill.min.js');
+    require('../../lib/polyfill/drag-drop-polyfill.css');
+    DragDropPolyfill.Initialize({});
   }, 'ios-drag-drop');
 }

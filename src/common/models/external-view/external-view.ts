@@ -1,10 +1,26 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Class, Instance, isInstanceOf } from 'immutable-class';
 import { Timezone } from 'chronoshift';
 import { $, Expression } from 'plywood';
-import { Essence, DataSource, Filter, Splits, Customization} from '../../../common/models/index';
+import { Essence, DataCube, Filter, Splits, Customization} from '../../../common/models/index';
 
 export interface LinkGenerator {
-  (dataSource: DataSource, timezone: Timezone, filter: Filter, splits: Splits): string;
+  (dataCube: DataCube, timezone: Timezone, filter: Filter, splits: Splits): string;
 }
 
 export interface ExternalViewValue {
@@ -40,22 +56,26 @@ export class ExternalView implements Instance<ExternalViewValue, ExternalViewVal
     const { title, linkGenerator } = parameters;
     if (!title) throw new Error("External view must have title");
     if (typeof linkGenerator !== 'string') throw new Error("Must provide link generator function");
+
     this.title = title;
     this.linkGenerator = linkGenerator;
-    var linkGeneratorFnRaw: LinkGenerator = null;
+    var linkGeneratorFnRaw: any = null;
     try {
-      linkGeneratorFnRaw = new Function('dataSource', 'timezone', 'filter', 'splits', linkGenerator) as LinkGenerator;
+      // dataSource is for back compat.
+      linkGeneratorFnRaw = new Function('dataCube', 'dataSource', 'timezone', 'filter', 'splits', linkGenerator) as LinkGenerator;
     } catch (e) {
       throw new Error(`Error constructing link generator function: ${e.message}`);
     }
-    this.linkGeneratorFn = (dataSource: DataSource, timezone: Timezone, filter: Filter, splits: Splits) => {
+
+    this.linkGeneratorFn = (dataCube: DataCube, timezone: Timezone, filter: Filter, splits: Splits) => {
       try {
-        return linkGeneratorFnRaw(dataSource, timezone, filter, splits);
+        return linkGeneratorFnRaw(dataCube, dataCube, timezone, filter, splits);
       } catch (e) {
         console.warn(`Error with custom link generating function '${title}': ${e.message} [${linkGenerator}]`);
         return null;
       }
     };
+
     this.sameWindow = Boolean(parameters.sameWindow);
   }
 

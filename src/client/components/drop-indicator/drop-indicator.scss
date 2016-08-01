@@ -1,31 +1,43 @@
+/*
+ * Copyright 2015-2016 Imply Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 @import '../../imports';
 
-$action-padding: 16px;
+$action-padding: 12px;
 $icon-size: 30px;
 
 .drop-indicator {
   .white-out {
-    @include pin-full;
-    background: $white;
-    opacity: .65;
+    @include unpin-full(8px);
+    background: rgba($border-darker, 0.14);
+    border-radius: 4px;
   }
 
   .action {
     position: absolute;
-    top: $action-padding;
-    bottom: $action-padding;
-    left: $action-padding;
-    right: $action-padding;
-    border-radius: $corner * 3;
-    border: 1px dashed $border-darker;
+    display: inline-block;
+    padding: 7px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba($white, 1);
+    border-radius: 4px;
 
     svg {
-      position: absolute;
       width: $icon-size;
-      top: 50%;
-      left: 50%;
-      margin-left: -$icon-size / 2;
-      margin-top: -$icon-size / 2;
     }
 
     path {
